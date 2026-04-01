@@ -1,0 +1,36 @@
+# Go binaries
+bin/
+/api
+/worker
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test/coverage
+*.test
+coverage.out
+*.coverprofile
+
+# Go vendor (we use modules)
+vendor/
+
+# Environment
+.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (future frontend)
+node_modules/
+web/dist/
+
+# Docker
+deploy/.env
