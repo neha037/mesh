@@ -140,8 +140,7 @@ CREATE INDEX idx_jobs_pending ON jobs(scheduled_for, created_at)
 CREATE INDEX idx_jobs_status ON jobs(status);
 
 -- Review scheduling
-CREATE INDEX idx_review_due ON review_schedule(due_date)
-    WHERE due_date <= now();
+CREATE INDEX idx_review_due ON review_schedule(due_date);
 
 -- Tag lookups
 CREATE INDEX idx_tags_name ON tags(name);
