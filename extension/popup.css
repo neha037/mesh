@@ -1,0 +1,99 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 350px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+
+.container {
+  padding: 16px;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+
+.status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: none;
+}
+
+.status.success {
+  display: block;
+  background: #e6f9e6;
+  color: #1a7a1a;
+}
+
+.status.error {
+  display: block;
+  background: #fde8e8;
+  color: #b91c1c;
+}
+
+.status.saving {
+  display: block;
+  background: #e8f0fe;
+  color: #1a56db;
+}
+
+.status.updated {
+  display: block;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+#recent-list {
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#recent-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#recent-list li .time {
+  color: #999;
+  font-size: 11px;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.footer-link {
+  color: #666;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: #333;
+}

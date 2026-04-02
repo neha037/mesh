@@ -13,9 +13,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /mesh-api ./cmd/api
 # ── Stage 2: Run ─────────────────────────────────────────
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata curl \
+    && addgroup -g 1000 mesh && adduser -D -u 1000 -G mesh mesh
 
 COPY --from=builder /mesh-api /mesh-api
+
+USER mesh
 
 EXPOSE 8080
 

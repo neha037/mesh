@@ -14,6 +14,7 @@ type Config struct {
 	MinioSecretKey string
 	MinioBucket    string
 	OllamaHost     string
+	ServerPort     string
 	WorkerCount    int
 	LogLevel       string
 }
@@ -42,6 +43,7 @@ func Load() (*Config, error) {
 		MinioSecretKey: os.Getenv("MINIO_SECRET_KEY"),
 		MinioBucket:    getEnvOrDefault("MINIO_BUCKET", "mesh-images"),
 		OllamaHost:     getEnvOrDefault("OLLAMA_HOST", "http://localhost:11434"),
+		ServerPort:     getEnvOrDefault("SERVER_PORT", "8080"),
 		WorkerCount:    workerCount,
 		LogLevel:       getEnvOrDefault("LOG_LEVEL", "info"),
 	}, nil

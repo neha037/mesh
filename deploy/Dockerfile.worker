@@ -13,8 +13,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /mesh-worker ./cmd/worker
 # ── Stage 2: Run ─────────────────────────────────────────
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata \
+    && addgroup -g 1000 mesh && adduser -D -u 1000 -G mesh mesh
 
 COPY --from=builder /mesh-worker /mesh-worker
+
+USER mesh
 
 ENTRYPOINT ["/mesh-worker"]

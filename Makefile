@@ -1,7 +1,12 @@
+-include .env
+export
+
+DATABASE_URL ?= postgres://mesh:$(PG_PASSWORD)@localhost:5432/mesh?sslmode=disable
+
 .PHONY: build run-api run-worker test test-integration \
        migrate-up migrate-down \
        docker-up docker-up-ai docker-down docker-logs \
-       lint sqlc pull-models
+       lint sqlc pull-models install uninstall
 
 build:
 	go build -o bin/api ./cmd/api
@@ -46,3 +51,16 @@ sqlc:
 pull-models:
 	docker exec mesh-ollama ollama pull nomic-embed-text
 	docker exec mesh-ollama ollama pull mistral:7b-instruct-q4_0
+
+install:
+	bash scripts/install.sh
+
+uninstall:
+	systemctl --user stop mesh 2>/dev/null || true
+	systemctl --user disable mesh 2>/dev/null || true
+	rm -f ~/.config/systemd/user/mesh.service
+	rm -f ~/.local/share/applications/mesh.desktop
+	rm -f ~/.config/autostart/mesh.desktop
+	systemctl --user daemon-reload
+	update-desktop-database ~/.local/share/applications 2>/dev/null || true
+	@echo "Mesh uninstalled. Docker containers may still be running — use 'make docker-down' to stop them."

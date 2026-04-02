@@ -1,0 +1,18 @@
+title: Mesh
+description: A local-first Personal Growth Engine
+remote_theme: just-the-docs/just-the-docs
+
+url: "https://neha037.github.io"
+baseurl: "/mesh"
+
+color_scheme: dark
+
+aux_links:
+  "GitHub":
+    - "https://github.com/neha037/mesh"
+
+exclude:
+  - PROJECT_MESH_BLUEPRINT.md
+  - DEVELOPERS_GUIDE.md
+  - REVIEW_CHECKLIST.md
+  - PROJECT_PROGRESS.md

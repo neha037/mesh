@@ -1,0 +1,15 @@
+[Unit]
+Description=Mesh Knowledge Engine (services)
+After=network-online.target
+Wants=network-online.target
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/sg docker -c "MESH_PROJECT_DIR/scripts/mesh-services.sh"
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

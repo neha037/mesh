@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 1, 2026
+**Last Updated:** April 2, 2026
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -13,6 +13,7 @@ This is a living document tracking what has been completed, what's in progress, 
 | March 31, 2026 | Project conception — architectural blueprint written |
 | April 1, 2026 | Documentation framework created (README, Developer's Guide, Review Checklist, this document) |
 | April 1, 2026 | Phase 1 Week 1 — Project scaffolding complete (Git, Go module, Docker Compose, migrations, Dockerfiles, Makefile) |
+| April 2, 2026 | Phase 1 Week 2 — HTTP server, chi router, CORS, ingest/raw endpoint, recent nodes endpoint, browser extension (auto-save, view all, delete), systemd service + tray icon (Wayland AppIndicator), URL dedup (upsert), keyset pagination, connection pool tuning, GitHub Pages documentation site |
 
 ---
 
@@ -93,16 +94,40 @@ mesh/
 │   └── worker/main.go                  # Stub worker entrypoint
 ├── internal/
 │   ├── config/config.go                # Environment-based config loading
+│   ├── api/
+│   │   ├── router.go                   # chi router with middleware
+│   │   └── handler/
+│   │       ├── handler.go              # Handler struct with dependencies
+│   │       └── ingest.go               # Ingest, list, delete handlers
+│   ├── storage/
+│   │   ├── db.go                       # Database interface (sqlc generated)
+│   │   ├── models.go                   # Data models (sqlc generated)
+│   │   ├── nodes.sql.go                # Node queries (sqlc generated)
+│   │   ├── postgres.go                 # PostgreSQL connection pool setup
+│   │   └── queries/nodes.sql           # SQL query definitions
 │   └── domain/                         # Core types (empty, Week 2)
 ├── migrations/
+│   ├── embed.go                        # Embed migrations for binary
 │   ├── 001_initial_schema.up.sql       # Full schema: 7 tables + indexes
 │   └── 001_initial_schema.down.sql     # Reverse migration
 ├── deploy/
 │   ├── docker-compose.yml              # PostgreSQL, MinIO, Ollama, API, Worker
 │   ├── Dockerfile.api                  # Multi-stage Go build for API
 │   └── Dockerfile.worker               # Multi-stage Go build for Worker
+├── extension/
+│   ├── manifest.json                   # Chrome extension manifest v3
+│   ├── background.js                   # Badge updates service worker
+│   ├── popup.html/js/css               # Extension popup (auto-save on click)
+│   ├── saved.html/js/css               # Full-page saved pages view
+│   ├── options.html/js                 # API URL settings
+│   └── icons/                          # Extension icons (16-128px)
 ├── scripts/
-│   └── .gitkeep
+│   ├── install.sh                      # System installer (systemd, desktop entry)
+│   ├── mesh-services.sh                # Docker Compose lifecycle manager
+│   ├── mesh-tray.sh                    # Tray icon launcher
+│   ├── mesh-tray.py                    # AppIndicator3 tray (Wayland-compatible)
+│   ├── mesh.service                    # systemd user service unit
+│   └── mesh.desktop                    # Desktop entry for autostart
 ├── docs/
 │   ├── PROJECT_MESH_BLUEPRINT.md       # Full architectural blueprint
 │   ├── DEVELOPERS_GUIDE.md             # Developer setup and conventions
@@ -115,8 +140,6 @@ mesh/
 
 | Category | Items Missing |
 |----------|--------------|
-| **HTTP Server** | No chi router, no handlers, no middleware (Week 2) |
-| **Storage Layer** | No pgx repositories, no sqlc queries (Week 2) |
 | **Workers** | No job queue claim logic, no processor (Week 3) |
 | **Ingestion** | No scraper, no circuit breaker (Week 3) |
 | **Tests** | No test files (Week 3) |
@@ -145,7 +168,7 @@ mesh/
 
 ### Phase 1: Foundation & Ingestion — "The Senses" — IN PROGRESS
 
-**Progress: 9/20 items**
+**Progress: 15/21 items**
 
 - [x] Initialize Go module (`github.com/neha037/mesh`)
 - [x] Create project directory structure
@@ -156,12 +179,19 @@ mesh/
 - [x] Create `Makefile`
 - [x] Create `Dockerfile.api` (multi-stage build)
 - [x] Create `.env.example`
-- [ ] Implement HTTP server with chi router
+- [x] Implement HTTP server with chi router
 - [ ] `POST /api/v1/ingest/url` endpoint
+- [x] `POST /api/v1/ingest/raw` endpoint (URL + title + content)
+- [x] `GET /api/v1/nodes/recent` endpoint
+- [x] `GET /api/v1/nodes` endpoint (paginated)
+- [x] `DELETE /api/v1/nodes/{id}` endpoint
 - [ ] `POST /api/v1/ingest/text` endpoint
-- [ ] PostgreSQL repository layer (pgx + sqlc)
-- [ ] Request logging middleware
-- [ ] CORS middleware
+- [x] PostgreSQL repository layer (pgx + sqlc)
+- [x] Request logging middleware
+- [x] CORS middleware
+- [x] URL deduplication (upsert on conflict)
+- [x] Keyset (cursor) pagination for scalability
+- [x] Connection pool configuration (MinConns=5, MaxConns=25)
 - [ ] Web scraper (colly, timeouts, robots.txt)
 - [ ] Circuit breaker (sony/gobreaker)
 - [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)

@@ -75,15 +75,15 @@ docker compose --profile ai up -d ollama
 make pull-models
 ```
 
-The web UI will be available at `http://localhost:3000` and the API at `http://localhost:8080`.
+The API will be available at `http://localhost:8080`. The web dashboard is planned for Phase 4.
 
 ### Verify
 
 ```bash
-# Ingest a test URL
-curl -X POST http://localhost:8080/api/v1/ingest/url \
+# Save a test page
+curl -X POST http://localhost:8080/api/v1/ingest/raw \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "type": "article"}'
+  -d '{"url": "https://example.com", "title": "Test Page", "content": "Hello world"}'
 ```
 
 ## Development
@@ -107,7 +107,7 @@ make lint
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Foundation & Ingestion — "The Senses" | In progress (Week 1 scaffolding complete) |
+| 1 | Foundation & Ingestion — "The Senses" | In progress (Week 2: API, extension, dedup, pagination) |
 | 2 | Processing & Intelligence — "The Brain" | Not started |
 | 3 | Graph Traversal & Query API — "The Memory" | Not started |
 | 4 | Frontend Visualization — "The Eyes" | Not started |
@@ -117,6 +117,7 @@ make lint
 
 ## Documentation
 
+- **[User Guide](https://neha037.github.io/mesh)** — features, installation, extension usage, API reference
 - [Project Blueprint](docs/PROJECT_MESH_BLUEPRINT.md) — full architectural design, data model, and roadmap
 - [Developer's Guide](docs/DEVELOPERS_GUIDE.md) — setup, workflows, and conventions
 - [Review Checklist](docs/REVIEW_CHECKLIST.md) — codebase audit framework

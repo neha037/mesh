@@ -44,6 +44,12 @@ mesh/
 │   ├── api/main.go         # HTTP API server
 │   ├── worker/main.go      # Background job workers
 │   └── discovery/main.go   # Discovery engine (Phase 6)
+├── extension/              # Chrome browser extension (Manifest V3)
+│   ├── manifest.json       # Extension config, permissions
+│   ├── popup.html/js/css   # Popup with auto-save on click
+│   ├── saved.html/js/css   # Full-page view of all saved pages
+│   ├── options.html/js     # Settings (API URL)
+│   └── icons/              # Extension icons
 ├── internal/               # Private application code
 │   ├── api/                # HTTP handlers, middleware, router
 │   ├── config/             # Environment-based configuration
@@ -60,7 +66,10 @@ mesh/
 ├── migrations/             # SQL migration files (up/down pairs)
 ├── web/                    # React frontend (Phase 4+)
 ├── deploy/                 # Docker Compose, Dockerfiles, nginx config
-├── scripts/                # Utility scripts (backup, restore, seed, models)
+├── scripts/                # Utility scripts and system integration
+│   ├── install.sh          # Installer (systemd service, desktop entry)
+│   ├── mesh-services.sh    # Docker Compose lifecycle manager
+│   ├── mesh-tray.sh/.py    # System tray icon (AppIndicator3/Wayland)
 ├── .env.example            # Environment variable template
 ├── go.mod / go.sum         # Go module files
 ├── sqlc.yaml               # sqlc configuration
@@ -156,11 +165,14 @@ This creates:
 SELECT * FROM nodes WHERE id = $1;
 
 -- name: ListNodes :many
-SELECT * FROM nodes ORDER BY created_at DESC LIMIT $1 OFFSET $2;
+SELECT id, title, source_url, created_at FROM nodes
+WHERE (sqlc.narg('cursor')::TIMESTAMPTZ IS NULL OR created_at < sqlc.narg('cursor'))
+ORDER BY created_at DESC LIMIT $1;
 
--- name: CreateNode :one
-INSERT INTO nodes (type, title, content, source_url)
-VALUES ($1, $2, $3, $4)
+-- name: UpsertRawNode :one
+INSERT INTO nodes (type, title, content, source_url) VALUES ($1, $2, $3, $4)
+ON CONFLICT (source_url) WHERE source_url IS NOT NULL
+DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, updated_at = now()
 RETURNING *;
 ```
 
@@ -356,6 +368,8 @@ if err != nil {
 | Ollama OOM | Use quantized models (Q4_0); increase Docker memory limit |
 | sqlc errors | Ensure `sqlc.yaml` paths are correct; run `make migrate-up` first |
 | testcontainers fail | Ensure Docker daemon is running; check Docker socket permissions |
+| Docker group not effective | If user is SSSD/FreeIPA-managed, `newgrp docker` only affects current shell. Use `sg docker -c "<command>"` or log out/in. The systemd service wraps with `sg docker` automatically |
+| Tray icon not showing | `yad` doesn't work on Wayland. The tray uses AppIndicator3 (Python). Install `gnome-shell-extension-appindicator` and enable it |
 
 ---
 

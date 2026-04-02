@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Mesh
+Comment=Personal Knowledge Engine
+Exec=sg docker -c "MESH_PROJECT_DIR/scripts/mesh-tray.sh"
+Icon=MESH_PROJECT_DIR/extension/icons/icon128.png
+Path=MESH_PROJECT_DIR
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5

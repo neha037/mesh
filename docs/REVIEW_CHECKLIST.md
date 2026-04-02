@@ -55,10 +55,10 @@
 | 3.16 | `GET /api/v1/clusters` — cluster health report | 6 | | |
 | 3.17 | `GET /api/v1/discovery/bridges` — bridge candidates | 6 | | |
 | 3.18 | `POST /api/v1/discovery/trigger` — manual discovery run | 6 | | |
-| 3.19 | Request logging middleware active | 1 | | |
-| 3.20 | CORS middleware configured | 1 | | |
-| 3.21 | Consistent JSON error response format | 1+ | | |
-| 3.22 | Input validation on all POST/PUT endpoints | 1+ | | |
+| 3.19 | Request logging middleware active | 1 | PASS | chi middleware.Logger |
+| 3.20 | CORS middleware configured | 1 | PASS | go-chi/cors, allows all origins |
+| 3.21 | Consistent JSON error response format | 1+ | PASS | `{"error": "message"}` via writeJSON |
+| 3.22 | Input validation on all POST/PUT endpoints | 1+ | PARTIAL | Ingest validates url/title; more endpoints needed |
 
 ## 4. Database & Migrations
 
@@ -76,7 +76,7 @@
 | 4.10 | All foreign keys have ON DELETE CASCADE | 1 | PASS | |
 | 4.11 | UNIQUE constraints: tags.name, edges(source_id, target_id, rel_type) | 1 | PASS | |
 | 4.12 | CHECK constraints on type enums (nodes.type, edges.rel_type, jobs.type, jobs.status) | 1 | PASS | |
-| 4.13 | sqlc configured and generating type-safe Go code | 1 | PARTIAL | sqlc.yaml ready, queries not yet written (Week 2) |
+| 4.13 | sqlc configured and generating type-safe Go code | 1 | PASS | 5 queries: UpsertRawNode, ListRecentNodes, ListNodes (keyset), DeleteNode |
 | 4.14 | Migrations can be applied to a fresh database without errors | 1+ | | Needs Docker verification |
 | 4.15 | Migrations can be rolled back cleanly | 1+ | | Needs Docker verification |
 
@@ -172,7 +172,7 @@
 | 10.4 | `.env` in `.gitignore` | 1 | PASS | |
 | 10.5 | No external analytics or telemetry in frontend | 4 | | |
 | 10.6 | Input validation on all user-facing endpoints (URL format, field lengths, types) | 1+ | | |
-| 10.7 | SQL injection prevented (parameterized queries via sqlc/pgx) | 1 | | |
+| 10.7 | SQL injection prevented (parameterized queries via sqlc/pgx) | 1 | PASS | All queries parameterized via sqlc |
 | 10.8 | XSS prevention: HTML content sanitized before storage/display | 2 | | |
 | 10.9 | No data sent to external services (except user-initiated scraping) | 1+ | | |
 | 10.10 | MinIO presigned URLs use short expiry (1 hour) | 5 | | |
@@ -193,7 +193,7 @@
 
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
-| 12.1 | PostgreSQL connection pooling configured (pgx pool) | 1 | | |
+| 12.1 | PostgreSQL connection pooling configured (pgx pool) | 1 | PASS | MinConns=5, MaxConns=25, idle/lifetime timeouts |
 | 12.2 | Ristretto cache implemented behind `cache.Store` interface | 3+ | | |
 | 12.3 | Graph traversal queries have depth limits (max 5) | 3 | | |
 | 12.4 | Pagination on all list endpoints | 3 | | |
@@ -215,12 +215,12 @@
 - [x] Makefile with build/run/test/migrate/docker targets
 - [x] Multi-stage Dockerfile for API
 - [x] Git repo initialized with .gitignore
-- [ ] HTTP server with chi router
+- [x] HTTP server with chi router
 - [ ] `POST /api/v1/ingest/url` endpoint
 - [ ] `POST /api/v1/ingest/text` endpoint
-- [ ] PostgreSQL repository layer (pgx + sqlc)
-- [ ] Request logging middleware
-- [ ] CORS middleware
+- [x] PostgreSQL repository layer (pgx + sqlc)
+- [x] Request logging middleware
+- [x] CORS middleware
 - [ ] Web scraper with colly (timeout, robots.txt, User-Agent rotation)
 - [ ] Circuit breaker (sony/gobreaker)
 - [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)

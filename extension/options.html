@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mesh Extension Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 0 20px;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 20px; margin-bottom: 20px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    button {
+      padding: 8px 20px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { background: #333; }
+    .saved { color: #16a34a; font-size: 13px; margin-left: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Mesh Settings</h1>
+
+  <label for="api-url">API URL</label>
+  <input type="text" id="api-url" placeholder="http://localhost:8080">
+
+  <button id="save-btn">Save</button>
+  <span id="saved-msg" class="saved" style="display:none;">Saved</span>
+
+  <script src="options.js"></script>
+</body>
+</html>
