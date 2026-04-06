@@ -1,0 +1,23 @@
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+      target: builder
+    volumes:
+      - ../:/app
+    command: ["go", "run", "./cmd/api"]
+    environment:
+      LOG_LEVEL: debug
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+      target: builder
+    volumes:
+      - ../:/app
+    command: ["go", "run", "./cmd/worker"]
+    environment:
+      LOG_LEVEL: debug

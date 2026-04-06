@@ -1,9 +1,9 @@
 # Project Mesh: Production-Ready Architectural Blueprint
 
-**Version:** 1.0  
-**Date:** March 31, 2026  
+**Version:** 1.2  
+**Date:** April 6, 2026  
 **Author:** neha037  
-**Status:** Pre-Implementation Planning Complete
+**Status:** Phase 1 In Progress (Week 2 Complete)
 
 ---
 
@@ -117,8 +117,7 @@ Unlike passive PKM (Personal Knowledge Management) tools that serve as repositor
 | `PuerkitoBio/goquery` | HTML parsing | jQuery-like syntax for DOM traversal |
 | `sony/gobreaker` | Circuit breaker | Prevents cascading failures on external API calls |
 | `pgvector/pgvector-go` | Vector operations | Native pgvector types for pgx/GORM/sqlx |
-| `xyproto/ollamaclient` | Ollama LLM client | Text generation, summarization, embeddings |
-| `jonathanhecl/gollama` | Ollama wrapper | Structured outputs, function calling, vision support |
+| `net/http` (stdlib) | Ollama REST client | Direct HTTP to Ollama API — Gemma 4 supports structured output + function calling natively, no wrapper needed |
 | `jdkato/prose` | Pure-Go NLP | Tokenization, POS tagging, NER (fallback when Ollama unavailable) |
 | `dgraph-io/ristretto` | In-process cache | Concurrent, admission/eviction policies |
 | `minio/minio-go` | MinIO S3 client | Upload, download, presigned URLs |
@@ -150,7 +149,7 @@ This is the single most important architectural decision. Research strongly favo
 
 **pgvector capabilities:**
 - HNSW (Hierarchical Navigable Small World) indexing for approximate nearest neighbor search
-- Supports `vector(384)` type natively (matches `nomic-embed-text` embedding dimension)
+- Supports `vector(768)` type natively (matches `EmbeddingGemma-300M` embedding dimension)
 - Cosine distance operator `<=>` for similarity queries
 - Integrates with standard `sqlc`/`pgx` tooling via `pgvector-go`
 
@@ -180,10 +179,21 @@ The `dgraph-io/ristretto` library provides:
 
 **Architecture:** Ollama runs as a Docker container serving local LLMs. The Go backend communicates via HTTP API.
 
-| Model | Purpose | Size (Q4) | RAM Required |
+| Model | Purpose | Size (Q4/Q8) | RAM Required |
 |-------|---------|-----------|-------------|
-| `nomic-embed-text` | Generate 384-dim embeddings for semantic search | ~270 MB | ~500 MB |
-| `mistral:7b-instruct-q4_0` | Concept extraction, summarization, tag generation | ~4 GB | ~6 GB |
+| `embeddinggemma:300m-qat-q8_0` | Generate 768-dim embeddings for semantic search (Matryoshka: 768/512/256/128) | ~338 MB | ~200 MB |
+| `gemma4:e4b` | Concept extraction, summarization, tag generation, image understanding, audio transcription | ~4.5 GB | ~6 GB |
+
+**Why Gemma 4 over Mistral 7B:**
+- **Native structured JSON output** via Ollama `format` parameter — enforces schema instead of hoping for valid JSON
+- **Native function calling** for agentic workflows (tool schemas, not prompt hacks)
+- **Native system prompt support** (first-class `system` role)
+- **Multimodal** — natively processes images (configurable visual token budget: 70-1120) and audio (ASR, ≤30s)
+- **128K context window** (vs Mistral's ~8-32K) — process full long-form articles in a single pass
+- **Apache 2.0 license** (Mistral has custom license)
+- **Thinking mode** via `<|think|>` token — chain-of-thought reasoning for complex analysis tasks
+
+**Optional upgrade:** `gemma4:26b` (MoE, ~15GB Q4, only 3.8B params active per token) for users with 24GB+ RAM. Near-31B quality at E4B speeds.
 
 **Why local models over cloud APIs:**
 - **Privacy**: Zero data leaves the machine — non-negotiable for personal knowledge
@@ -283,8 +293,8 @@ K3s specifics:
 │ PostgreSQL   │    │ MinIO        │    │ Ollama           │
 │ + pgvector   │    │ (S3 Objects) │    │ (Local LLM)      │
 │              │    │              │    │                   │
-│ • nodes      │    │ • images     │    │ • nomic-embed     │
-│ • edges      │    │ • canvases   │    │ • mistral:7b      │
+│ • nodes      │    │ • images     │    │ • embeddinggemma  │
+│ • edges      │    │ • canvases   │    │ • gemma4:e4b      │
 │ • tags       │    │ • PDFs       │    │                   │
 │ • jobs       │    │              │    │                   │
 │ • reviews    │    │              │    │                   │
@@ -463,7 +473,7 @@ CREATE TABLE nodes (
     summary     TEXT,                            -- AI-generated summary
     source_url  TEXT,                            -- original URL if applicable
     image_key   TEXT,                            -- MinIO object key if applicable
-    embedding   vector(384),                     -- nomic-embed-text dimension
+    embedding   vector(768),                     -- EmbeddingGemma-300M dimension
     version     INTEGER NOT NULL DEFAULT 1,      -- optimistic concurrency control
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -749,31 +759,36 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 
 #### Week 1: Project Scaffolding
 
-- [ ] Initialize Go module: `go mod init github.com/neha037/mesh`
-- [ ] Create project directory structure (see Section 8)
-- [ ] Set up Docker Compose with PostgreSQL 16 + pgvector
-- [ ] Write initial SQL migration (`001_initial_schema.up.sql`) with `nodes`, `tags`, `node_tags`, `jobs` tables
-- [ ] Configure `golang-migrate` for migration management
-- [ ] Set up `Makefile` with targets: `build`, `run`, `migrate-up`, `migrate-down`, `test`, `docker-up`, `docker-down`
-- [ ] Create `Dockerfile.api` (multi-stage build: Go builder → scratch/alpine)
-- [ ] Initialize Git repository, add `.gitignore`
+- [x] Initialize Go module: `go mod init github.com/neha037/mesh`
+- [x] Create project directory structure (see Section 8)
+- [x] Set up Docker Compose with PostgreSQL 16 + pgvector
+- [x] Write initial SQL migration (`001_initial_schema.up.sql`) with all 7 tables + indexes
+- [x] Configure `golang-migrate` for migration management
+- [x] Set up `Makefile` with targets: `build`, `run`, `migrate-up`, `migrate-down`, `test`, `docker-up`, `docker-down`
+- [x] Create `Dockerfile.api` (multi-stage build: Go builder → alpine)
+- [x] Initialize Git repository, add `.gitignore`
 
 #### Week 2: Ingestion API
 
-- [ ] Implement HTTP server with `chi` router
-- [ ] `POST /api/v1/ingest/url` endpoint:
-  - Validate URL format
-  - Create node with status `pending`
-  - Enqueue `process_url` job
-  - Return `202 Accepted` with node ID
-- [ ] `POST /api/v1/ingest/text` endpoint:
-  - Validate required fields (title, content)
-  - Create node directly with status `raw`
-  - Enqueue `process_text` job
-  - Return `201 Created` with node ID
-- [ ] Implement PostgreSQL repository layer using `pgx` + `sqlc`
-- [ ] Add request logging middleware
-- [ ] Add CORS middleware (for frontend development)
+- [x] Implement HTTP server with `chi` router and graceful shutdown (SIGINT/SIGTERM)
+- [x] `POST /api/v1/ingest/raw` endpoint:
+  - Validates URL + title (required), content (optional)
+  - Creates node via UPSERT (deduplicates on source_url)
+  - Returns `201 Created` (new) or `200 OK` (updated) with node data
+- [ ] `POST /api/v1/ingest/url` endpoint (deferred to Week 3 — requires scraper + job queue)
+- [ ] `POST /api/v1/ingest/text` endpoint
+- [x] Implement PostgreSQL repository layer using `pgx` + `sqlc`
+- [x] Add request logging middleware
+- [x] Add CORS middleware (for frontend development)
+- [x] `GET /api/v1/nodes/recent` endpoint (last 20 nodes)
+- [x] `GET /api/v1/nodes` endpoint with keyset (cursor) pagination
+- [x] `DELETE /api/v1/nodes/{id}` endpoint
+- [x] URL deduplication via UPSERT (ON CONFLICT on source_url)
+- [x] Migration 002: unique constraint on source_url with duplicate cleanup
+- [x] Connection pool tuning (MinConns=5, MaxConns=25, 5min idle timeout)
+- [x] **Browser extension** (Chrome Manifest V3): one-click save popup, saved pages full-page view with delete, options page for API URL, background service worker with badge notifications
+- [x] **System integration**: systemd user service, desktop entry for autostart, Docker Compose lifecycle manager script, AppIndicator3 system tray icon (Wayland-compatible)
+- [x] **Documentation site**: Jekyll-based GitHub Pages with API reference, getting started guide, roadmap, troubleshooting, browser extension docs, system tray docs
 
 #### Week 3: Resilience and Testing
 
@@ -823,18 +838,36 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
   - HTTP client to `http://ollama:11434/api/generate` for tag extraction
   - HTTP client to `http://ollama:11434/api/embeddings` for vector generation
   - Retry logic with circuit breaker
-- [ ] Tag extraction prompt engineering:
+- [ ] Tag extraction using Ollama structured output:
+  - Use Gemma 4's native structured JSON output via Ollama `format` parameter
+  - System prompt sets the extraction role; user prompt provides the content
+  - Schema enforcement eliminates parsing failures — no freeform "return only JSON" hacks
 
-  ```
-  Extract 3-8 core concepts/topics from this text as a JSON array of strings.
-  Focus on domain-specific terms, not generic words.
-  Return ONLY the JSON array, no explanation.
-
-  Text: {content}
+  ```go
+  // Ollama API call with structured output
+  POST /api/generate
+  {
+    "model": "gemma4:e4b",
+    "system": "You are a concept extractor. Extract 3-8 core domain-specific concepts from the given text.",
+    "prompt": "{content}",
+    "format": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 3,
+          "maxItems": 8
+        }
+      },
+      "required": ["tags"]
+    },
+    "stream": false
+  }
   ```
 
 - [ ] Embedding generation:
-  - Model: `nomic-embed-text` (384 dimensions)
+  - Model: `embeddinggemma:300m-qat-q8_0` (768 dimensions, Matryoshka)
   - Store result in `nodes.embedding` column
 - [ ] UPSERT logic for tags:
 
@@ -1018,10 +1051,11 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 **Timeline:** Weeks 15-18 (24-32 hours)  
 **Goal:** Support images and unstructured manual entries alongside URL-sourced content.
 
-#### Week 15-16: Image Upload and Storage
+#### Week 15-16: Image Upload, PDF Ingestion, and Storage
 
 - [ ] MinIO bucket initialization on startup:
   - Create `mesh-images` bucket if not exists
+  - Create `mesh-documents` bucket for PDFs if not exists
   - Set lifecycle policy (no auto-deletion for personal use)
 - [ ] `POST /api/v1/ingest/image` endpoint:
   - Accept `multipart/form-data`
@@ -1033,11 +1067,22 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 - [ ] Image serving: `GET /api/v1/images/:key`
   - Generate MinIO presigned URL (1-hour expiry)
   - Redirect or proxy
-- [ ] If Ollama available: generate image description using vision model
-  - Use as node content for embedding generation
-  - Extract tags from description
+- [ ] Image understanding via Gemma 4 E4B (natively multimodal — no separate vision model needed):
+  - Pass image directly to Gemma 4 for description, concept extraction, and tag generation
+  - Configurable visual token budget (70-1120 tokens per image) — low for thumbnails, high for detailed diagrams
+  - Use generated description as node content for embedding generation
+  - Extract tags from description via structured output
+- [ ] `POST /api/v1/ingest/pdf` endpoint:
+  - Accept `multipart/form-data` (PDF only, max 50 MB)
+  - Upload original to MinIO `mesh-documents` bucket
+  - Create node with type `pdf`, store object key
+  - Enqueue `process_pdf` job for background processing
+  - Worker: Gemma 4 E4B parses PDF natively (OCR, document structure, chart comprehension, handwriting recognition)
+  - Extract text → generate tags via structured output → generate embedding → auto-create edges
+  - Supports: research papers, book highlights, course notes, handwritten scans
+  - **Migration note:** add `pdf` to `nodes.type` CHECK, `process_pdf` to `jobs.type` CHECK
 
-#### Week 17-18: Journal Entry UI
+#### Week 17-18: Journal Entry, Voice Notes, and Export
 
 - [ ] Journal entry page in frontend:
   - Rich text editor (lightweight: `@tiptap/react` or `react-quill`)
@@ -1052,8 +1097,26 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
   - Grid layout of image thumbnails
   - Click to expand with linked nodes shown
 - [ ] Timeline view: chronological list of all journal entries and image uploads
+- [ ] `POST /api/v1/ingest/audio` endpoint (voice note ingestion):
+  - Accept `multipart/form-data` (MP3/WAV, max 30 seconds)
+  - Upload original audio to MinIO `mesh-audio` bucket
+  - Create node with type `voice_note`
+  - Enqueue `process_audio` job for background processing
+  - Worker: Gemma 4 E4B transcribes natively (built-in ASR, 25 tokens/second of audio)
+  - Transcription stored in `content`, tags + embedding generated from transcription
+  - Supports multilingual speech recognition and translation
+  - **Migration note:** add `voice_note` to `nodes.type` CHECK, `process_audio` to `jobs.type` CHECK
+- [ ] Subgraph export:
+  - Select subgraph in UI (click cluster, multi-select nodes, or lasso tool)
+  - `POST /api/v1/export` with body `{node_ids: [...], format: "markdown|jsonld|png|obsidian"}`
+  - Export formats:
+    - **Markdown:** nodes as sections, edges as cross-references, tags as headers — ready for blog posts or study guides
+    - **JSON-LD:** interoperable knowledge graph format for external tools
+    - **PNG:** graph canvas screenshot via Cytoscape.js `cy.png()`
+    - **Obsidian-compatible:** one `.md` per node with `[[backlinks]]` — import into Obsidian vault
+  - Optional: AI-generated subgraph summary using Gemma 4 thinking mode (`<|think|>` token)
 
-**Phase 5 Deliverable:** Upload a photo of a painting → it links to the "acrylic painting" cluster. Write a brain-dump → auto-tagged and connected.
+**Phase 5 Deliverable:** Upload a photo of a painting → it links to the "acrylic painting" cluster. Record a voice note → transcribed and connected. Write a brain-dump → auto-tagged. Export a cluster as a blog post draft.
 
 ---
 
@@ -1110,8 +1173,14 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 - [ ] Serendipity metrics:
   - Track user interactions with bridge/wildcard nodes (clicked, dismissed, explored further)
   - Calculate Kotkov metric: relevance × dissimilarity of accepted suggestions
+- [ ] Automatic de-duplication:
+  - Nightly batch scan: find node pairs with cosine similarity > 0.90
+  - Store candidates in `discovery_runs` with `run_type: 'dedup_scan'`
+  - `GET /api/v1/discovery/duplicates` — returns candidate pairs with similarity scores, shared tags, source URLs
+  - UI: side-by-side comparison card with "Merge", "Keep Both", "Dismiss" actions
+  - Merge logic: combine tags (union), keep both source URLs, preserve older node as primary, create redirect edge from archived duplicate, update all edges pointing to duplicate
 
-**Phase 6 Deliverable:** System actively suggests cross-domain reading, injects new seed topics weekly, and tracks discovery effectiveness.
+**Phase 6 Deliverable:** System actively suggests cross-domain reading, injects new seed topics weekly, detects and merges duplicate content, and tracks discovery effectiveness.
 
 ---
 
@@ -1154,6 +1223,15 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
   - After rating: show next due date, animate card exit
   - Daily streak counter
 - [ ] Review notification on dashboard: badge showing count of due reviews
+- [ ] Knowledge decay visualization on graph canvas:
+  - Compute FSRS retrievability score for each node: `CalculateRetrievability(stability, daysSinceReview)`
+  - Node opacity maps to retrievability (1.0 = fully opaque, 0.0 = nearly invisible)
+  - Color gradient overlay: green (>80%), yellow (50-80%), red (<50%)
+  - Bright nodes = recently reviewed / high retrievability; faded nodes = stale / needs review
+  - Click faded node → prompt to start review session
+  - "Show decay" toggle button on graph toolbar (off by default to avoid visual clutter)
+  - "Knowledge health" stat on dashboard: percentage of nodes above 80% retrievability
+  - API: `GET /api/v1/review/health` — returns per-node retrievability scores for the graph overlay
 
 #### Week 29-30: Semantic Cross-Pollination
 
@@ -1178,7 +1256,35 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
   - Traefik ingress for web UI
   - PersistentVolumeClaims with local-path-provisioner
 
-**Phase 7 Deliverable:** Daily review card surfacing forgotten knowledge + deep semantic connections revealing hidden relationships between disparate knowledge domains.
+**Phase 7 Deliverable:** Daily review card surfacing forgotten knowledge + knowledge decay visualization on the graph + deep semantic connections revealing hidden relationships between disparate knowledge domains.
+
+---
+
+### Future Enhancements (Post-Phase 7)
+
+#### LoRA-Personalized Tagging
+
+After the core system is mature, the tag extraction model can be fine-tuned to the user's personal taxonomy:
+
+- [ ] Track user tag corrections in a `tag_corrections` table:
+  - Fields: `node_id`, `original_tags JSONB`, `accepted_tags JSONB`, `rejected_tags JSONB`, `added_tags JSONB`, `created_at`
+  - Record every time the user modifies auto-generated tags
+- [ ] After ~50-100 corrections, offer LoRA fine-tuning of Gemma 4 E4B:
+  - QLoRA with 4-bit quantization (~8 GB RAM for training)
+  - Train on user's correction pairs: (content → accepted_tags)
+  - Only ~0.2% of parameters trained — small adapter file (~100-500 MB)
+  - Use Unsloth or similar for efficient local fine-tuning
+- [ ] Deploy LoRA adapter alongside base model:
+  - Ollama supports LoRA adapters via Modelfile
+  - Tag extraction uses personalized adapter; other tasks use base model
+  - Result: tag extraction increasingly matches the user's mental model and domain vocabulary
+
+#### Additional Ideas
+
+- **Mobile companion app** — React Native or PWA for quick voice note capture on the go
+- **RSS feed ingestion** — Scheduled import from RSS/Atom feeds with deduplication
+- **Collaborative mode** — Multi-user support with per-user embeddings and shared graph (requires auth layer)
+- **Plugin system** — Allow custom ingestion sources (e.g., Kindle highlights, Twitter bookmarks, Pocket)
 
 ---
 
@@ -1190,16 +1296,17 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 |-----------|----------|----------|-------|
 | PostgreSQL 16 | ~50 MB | ~200 MB | With shared_buffers=128MB |
 | MinIO | ~30 MB | ~100 MB | Minimal for single-bucket use |
-| Ollama (nomic-embed-text) | ~500 MB | ~700 MB | Embedding model only |
-| Ollama (mistral:7b Q4) | ~4 GB | ~6 GB | Only during inference |
+| Ollama (EmbeddingGemma Q8) | ~200 MB | ~300 MB | Embedding model only |
+| Ollama (Gemma 4 E4B) | ~4.5 GB | ~6 GB | Only during inference |
 | Go API | ~10 MB | ~50 MB | Compiled binary |
 | Go Worker (x4) | ~40 MB | ~200 MB | 4 goroutines |
 | React Dev Server | ~100 MB | ~200 MB | Development only (nginx: ~5 MB) |
-| **Total (with Mistral)** | **~4.7 GB** | **~7.5 GB** | Fits in 16 GB |
-| **Total (without Mistral)** | **~730 MB** | **~1.5 GB** | Fits in 8 GB |
+| **Total (with Gemma 4)** | **~5 GB** | **~7 GB** | Fits in 16 GB |
+| **Total (without Gemma 4)** | **~430 MB** | **~1 GB** | Fits in 8 GB |
 
 **Mitigation strategies:**
-- Use **quantized models** (Q4_0): reduces Mistral from ~14 GB to ~4 GB RAM
+- Use **quantized models**: EmbeddingGemma Q8 (~338 MB), Gemma 4 E4B (~4.5 GB)
+- Optional upgrade: `gemma4:26b` MoE (~15 GB Q4, 3.8B active params) for 24GB+ systems
 - Make Ollama an **optional dependency** via Docker Compose profiles
 - Fall back to `jdkato/prose` for basic NER when memory is tight
 - Configure **Docker memory limits** per container to prevent OOM
@@ -1258,7 +1365,8 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 **Risk:** Switching embedding models later invalidates all existing vectors (different dimensions, different semantic spaces).
 
 **Mitigation:**
-- Standardize on `nomic-embed-text` (384-dim) from Phase 2 onward
+- Standardize on `EmbeddingGemma-300M` (768-dim) from Phase 2 onward
+- EmbeddingGemma supports Matryoshka dimensions (768/512/256/128) — can truncate at query time if needed
 - Store model name/version as metadata (consider adding `embedding_model TEXT` column to `nodes`)
 - If migration is needed: batch re-embed script processes all nodes overnight (feasible at <10K nodes)
 - pgvector HNSW index rebuild is fast at personal scale (~seconds for 10K vectors)
@@ -1282,137 +1390,100 @@ Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 ──► Phase 5 
 ```
 mesh/
 ├── cmd/
-│   ├── api/                    # API server entrypoint
-│   │   └── main.go
-│   ├── worker/                 # Background worker entrypoint
-│   │   └── main.go
-│   └── discovery/              # Discovery engine entrypoint
-│       └── main.go
+│   ├── api/                        # API server entrypoint
+│   │   └── main.go                 #   Config, migrations, HTTP server, graceful shutdown
+│   └── worker/                     # Background worker entrypoint
+│       └── main.go                 #   Stub (job processing — Week 3)
 ├── internal/
-│   ├── api/                    # HTTP handlers, middleware, routing
-│   │   ├── handler/
-│   │   │   ├── ingest.go       # Ingestion endpoints
-│   │   │   ├── graph.go        # Graph query endpoints
-│   │   │   ├── search.go       # Search endpoints
-│   │   │   ├── review.go       # FSRS review endpoints
-│   │   │   ├── discovery.go    # Discovery endpoints
-│   │   │   └── nodes.go        # Node CRUD endpoints
-│   │   ├── middleware/
-│   │   │   ├── logging.go
-│   │   │   ├── cors.go
-│   │   │   └── recovery.go
-│   │   └── router.go           # Route registration
-│   ├── config/                 # Configuration loading (env vars)
+│   ├── api/                        # HTTP handlers and routing
+│   │   ├── router.go               #   chi router, middleware registration, route definitions
+│   │   └── handler/
+│   │       ├── handler.go          #   Handler struct (DI), writeJSON helper
+│   │       └── ingest.go           #   Ingest, list, delete handlers
+│   ├── config/                     # Configuration loading (env vars)
 │   │   └── config.go
-│   ├── domain/                 # Core domain types
-│   │   ├── node.go             # Node, NodeType
-│   │   ├── edge.go             # Edge, RelationType
-│   │   ├── tag.go              # Tag
-│   │   ├── job.go              # Job, JobType, JobStatus
-│   │   └── review.go           # ReviewSchedule, Rating
-│   ├── graph/                  # Graph traversal logic
-│   │   ├── traverse.go         # BFS/DFS via recursive CTEs
-│   │   ├── cluster.go          # Cluster density analysis
-│   │   └── bridge.go           # Bridge candidate detection
-│   ├── ingest/                 # Content acquisition
-│   │   ├── scraper.go          # URL scraping (colly)
-│   │   ├── html.go             # HTML stripping (goquery)
-│   │   └── circuit.go          # Circuit breaker wrapper
-│   ├── nlp/                    # NLP and AI integration
-│   │   ├── ollama.go           # Ollama client (tags, embeddings, summaries)
-│   │   ├── fallback.go         # prose-based fallback NER
-│   │   └── prompt.go           # Prompt templates
-│   ├── discovery/              # Discovery engine
-│   │   ├── engine.go           # Main discovery orchestration
-│   │   ├── wildcard.go         # Wildcard topic injection
-│   │   └── sources.go          # External source adapters (Wikipedia, HN, arXiv)
-│   ├── fsrs/                   # FSRS algorithm implementation
-│   │   ├── algorithm.go        # Core FSRS calculations
-│   │   ├── scheduler.go        # Review scheduling logic
-│   │   └── algorithm_test.go   # Tests against reference values
-│   ├── storage/                # PostgreSQL data access layer
-│   │   ├── postgres.go         # Connection pool setup
-│   │   ├── nodes.go            # Node repository (sqlc-generated + custom)
-│   │   ├── edges.go            # Edge repository
-│   │   ├── tags.go             # Tag repository
-│   │   ├── jobs.go             # Job queue repository
-│   │   ├── reviews.go          # Review schedule repository
-│   │   └── queries/            # sqlc SQL query files
-│   │       ├── nodes.sql
-│   │       ├── edges.sql
-│   │       ├── tags.sql
-│   │       ├── jobs.sql
-│   │       └── reviews.sql
-│   ├── objstore/               # MinIO client wrapper
-│   │   └── minio.go
-│   ├── queue/                  # Job queue orchestration
-│   │   ├── worker.go           # Worker pool manager
-│   │   └── processor.go        # Job type → handler dispatch
-│   └── cache/                  # Caching interface
-│       ├── cache.go            # Cache interface definition
-│       └── ristretto.go        # ristretto implementation
-├── migrations/                 # SQL migration files
-│   ├── 001_initial_schema.up.sql
+│   ├── domain/                     # Core domain types (placeholder — Phase 2)
+│   ├── storage/                    # PostgreSQL data access layer
+│   │   ├── postgres.go             #   Connection pool setup (pgx)
+│   │   ├── migrate.go              #   golang-migrate integration
+│   │   ├── db.go                   #   Queries interface (sqlc-generated)
+│   │   ├── models.go               #   Data models (sqlc-generated)
+│   │   ├── nodes.sql.go            #   Node query methods (sqlc-generated)
+│   │   └── queries/
+│   │       └── nodes.sql           #   SQL query definitions for sqlc
+│   │
+│   │   # ── Planned directories (not yet created) ──
+│   │   # graph/          — Graph traversal logic (Phase 3)
+│   │   # ingest/         — Scraper, HTML stripping, circuit breaker (Week 3)
+│   │   # nlp/            — Ollama client, fallback NER (Phase 2)
+│   │   # discovery/      — Discovery engine (Phase 6)
+│   │   # fsrs/           — FSRS algorithm (Phase 7)
+│   │   # objstore/       — MinIO client (Phase 5)
+│   │   # queue/          — Worker pool, job dispatch (Week 3)
+│   │   # cache/          — ristretto cache interface (Phase 2)
+│   │
+├── migrations/
+│   ├── embed.go                        # Embed migrations into binary via go:embed
+│   ├── 001_initial_schema.up.sql       # 7 tables + indexes
 │   ├── 001_initial_schema.down.sql
-│   ├── 002_add_review_schedule.up.sql
-│   ├── 002_add_review_schedule.down.sql
-│   └── ...
-├── web/                        # React frontend application
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── GraphCanvas.tsx     # Cytoscape.js wrapper
-│   │   │   ├── SidePanel.tsx       # Node detail panel
-│   │   │   ├── SearchBar.tsx       # Search with autocomplete
-│   │   │   ├── FilterPanel.tsx     # Type/tag/date filters
-│   │   │   ├── ReviewCard.tsx      # FSRS review card
-│   │   │   ├── DiscoveryDash.tsx   # Discovery dashboard
-│   │   │   ├── JournalEditor.tsx   # Rich text journal entry
-│   │   │   └── ImageGallery.tsx    # Image node gallery
-│   │   ├── hooks/
-│   │   │   ├── useGraph.ts         # Graph data fetching
-│   │   │   ├── useSearch.ts        # Search with debounce
-│   │   │   └── useReview.ts        # Review queue state
-│   │   ├── lib/
-│   │   │   ├── api.ts              # Typed API client
-│   │   │   ├── cytoscape.ts        # Cytoscape.js config and styles
-│   │   │   └── types.ts            # TypeScript type definitions
-│   │   ├── pages/
-│   │   │   ├── GraphPage.tsx       # Main graph view
-│   │   │   ├── SearchPage.tsx      # Search results
-│   │   │   ├── ReviewPage.tsx      # Daily review
-│   │   │   ├── DiscoveryPage.tsx   # Discovery dashboard
-│   │   │   └── JournalPage.tsx     # Journal entry
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
-│   └── vite.config.ts
-├── deploy/
-│   ├── docker-compose.yml          # Full service topology
-│   ├── docker-compose.dev.yml      # Development overrides
-│   ├── Dockerfile.api              # Multi-stage Go build for API
-│   ├── Dockerfile.worker           # Multi-stage Go build for Worker
-│   ├── Dockerfile.web              # Vite build → nginx
-│   ├── nginx.conf                  # Frontend nginx config
-│   └── k3s/                        # Future K3s manifests
-│       ├── namespace.yaml
-│       ├── postgres.yaml
-│       ├── api.yaml
-│       ├── worker.yaml
-│       └── ingress.yaml
+│   ├── 002_unique_source_url.up.sql    # Unique constraint on source_url
+│   └── 002_unique_source_url.down.sql
+├── extension/                          # Chrome browser extension (Manifest V3)
+│   ├── manifest.json                   #   Permissions, service worker, popup
+│   ├── background.js                   #   Badge updates service worker
+│   ├── popup.html / popup.js / popup.css   # One-click save popup
+│   ├── saved.html / saved.js / saved.css   # Full-page saved pages view
+│   ├── options.html / options.js       #   API URL configuration
+│   └── icons/                          #   Icon set (16/32/48/128px)
 ├── scripts/
-│   ├── backup.sh                   # PostgreSQL + MinIO backup script
-│   ├── restore.sh                  # Restore from backup
-│   ├── seed.sh                     # Seed database with sample data
-│   └── pull-models.sh              # Download Ollama models
-├── .env.example                    # Environment variable template
+│   ├── install.sh                      # System installer (systemd, desktop entry)
+│   ├── mesh-services.sh                # Docker Compose lifecycle manager
+│   ├── mesh-tray.sh                    # Tray icon launcher
+│   ├── mesh-tray.py                    # AppIndicator3 tray (Wayland-compatible)
+│   ├── mesh.service                    # systemd user service unit
+│   └── mesh.desktop                    # Desktop entry for autostart
+│   │
+│   │   # ── Planned scripts (not yet created) ──
+│   │   # backup.sh       — PostgreSQL + MinIO backup
+│   │   # restore.sh      — Restore from backup
+│   │   # seed.sh         — Seed database with sample data
+│   │   # pull-models.sh  — Download Ollama models
+│   │
+├── deploy/
+│   ├── docker-compose.yml              # postgres, minio, ollama, api, worker
+│   ├── Dockerfile.api                  # Multi-stage Go build for API
+│   ├── Dockerfile.worker               # Multi-stage Go build for Worker
+│   └── nginx.conf                      # Placeholder (Phase 4)
+│   │
+│   │   # ── Planned files (not yet created) ──
+│   │   # docker-compose.dev.yml  — Development overrides
+│   │   # Dockerfile.web          — Vite build → nginx (Phase 4)
+│   │   # k3s/                    — K3s manifests (Phase 7+)
+│   │
+├── docs/
+│   ├── PROJECT_MESH_BLUEPRINT.md       # Full architectural blueprint (this document)
+│   ├── PROJECT_PROGRESS.md             # Progress tracker
+│   ├── DEVELOPERS_GUIDE.md             # Developer setup and conventions
+│   ├── REVIEW_CHECKLIST.md             # Codebase audit framework
+│   ├── _config.yml                     # Jekyll configuration
+│   ├── index.md                        # Docs homepage
+│   ├── api-reference.md                # API endpoint reference
+│   ├── getting-started.md              # Quick start guide
+│   ├── roadmap.md                      # Feature roadmap
+│   ├── browser-extension.md            # Extension usage guide
+│   ├── system-tray.md                  # System tray documentation
+│   └── troubleshooting.md              # Common issues
+│   │
+│   │   # ── Planned (Phase 4+) ──
+│   │   # web/              — React frontend (Phase 4)
+│   │
+├── .env.example                        # Environment variable template
 ├── .gitignore
+├── CLAUDE.md                           # Claude integration instructions
 ├── go.mod
 ├── go.sum
-├── sqlc.yaml                       # sqlc configuration
-├── Makefile                        # Build, test, run targets
+├── sqlc.yaml                           # sqlc configuration
+├── Makefile                            # Build, test, run, install targets
 └── README.md
 ```
 
@@ -1424,8 +1495,6 @@ mesh/
 
 ```yaml
 # deploy/docker-compose.yml
-version: "3.9"
-
 services:
   # ─── PostgreSQL with pgvector ───────────────────────────
   postgres:
@@ -1461,12 +1530,12 @@ services:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
 
-  # ─── Ollama Local LLM (optional) ──────────────────────
+  # ─── Ollama Local LLM ─────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: mesh-ollama
@@ -1503,6 +1572,20 @@ services:
       LOG_LEVEL: info
     ports:
       - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/v1/nodes/recent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   # ─── Go Background Worker ─────────────────────────────
   worker:
@@ -1522,18 +1605,27 @@ services:
       OLLAMA_HOST: http://ollama:11434
       WORKER_COUNT: 4
       LOG_LEVEL: info
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
-  # ─── React Frontend ───────────────────────────────────
-  web:
-    build:
-      context: ../web
-      dockerfile: ../deploy/Dockerfile.web
-    container_name: mesh-web
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3000:80"
-    depends_on:
-      - api
+  # ─── React Frontend (Phase 4) ─────────────────────────
+  # web:
+  #   build:
+  #     context: ../web
+  #     dockerfile: ../deploy/Dockerfile.web
+  #   container_name: mesh-web
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:3000:80"
+  #   depends_on:
+  #     - api
 
 volumes:
   pgdata:
@@ -1582,18 +1674,20 @@ services:
 
 ```dockerfile
 # deploy/Dockerfile.api
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
-COPY go.mod go.sum ./
+COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /mesh-api ./cmd/api
 
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates tzdata
-COPY --from=builder /mesh-api /usr/local/bin/mesh-api
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates tzdata curl \
+    && addgroup -g 1000 mesh && adduser -D -u 1000 -G mesh mesh
+COPY --from=builder /mesh-api /mesh-api
+USER mesh
 EXPOSE 8080
-ENTRYPOINT ["mesh-api"]
+ENTRYPOINT ["/mesh-api"]
 ```
 
 ### Environment Template
@@ -1608,12 +1702,19 @@ MINIO_PASSWORD=change-me-to-something-secure
 ### Makefile Targets
 
 ```makefile
-.PHONY: build run test migrate-up migrate-down docker-up docker-down lint
+-include .env
+export
+
+DATABASE_URL ?= postgres://mesh:$(PG_PASSWORD)@localhost:5432/mesh?sslmode=disable
+
+.PHONY: build run-api run-worker test test-integration \
+       migrate-up migrate-down \
+       docker-up docker-up-ai docker-down docker-logs \
+       lint sqlc pull-models install uninstall
 
 build:
 	go build -o bin/api ./cmd/api
 	go build -o bin/worker ./cmd/worker
-	go build -o bin/discovery ./cmd/discovery
 
 run-api:
 	go run ./cmd/api
@@ -1634,16 +1735,16 @@ migrate-down:
 	migrate -path migrations -database "$(DATABASE_URL)" down 1
 
 docker-up:
-	cd deploy && docker compose up -d
+	cd deploy && docker-compose --env-file ../.env up -d
 
 docker-up-ai:
-	cd deploy && docker compose --profile ai up -d
+	cd deploy && docker-compose --env-file ../.env --profile ai up -d
 
 docker-down:
-	cd deploy && docker compose --profile ai down
+	cd deploy && docker-compose --env-file ../.env --profile ai down
 
 docker-logs:
-	cd deploy && docker compose logs -f
+	cd deploy && docker-compose --env-file ../.env logs -f
 
 lint:
 	golangci-lint run ./...
@@ -1651,15 +1752,20 @@ lint:
 sqlc:
 	sqlc generate
 
-seed:
-	./scripts/seed.sh
-
-backup:
-	./scripts/backup.sh
-
 pull-models:
-	docker exec mesh-ollama ollama pull nomic-embed-text
-	docker exec mesh-ollama ollama pull mistral:7b-instruct-q4_0
+	docker exec mesh-ollama ollama pull embeddinggemma:300m-qat-q8_0
+	docker exec mesh-ollama ollama pull gemma4:e4b
+
+install:
+	bash scripts/install.sh
+
+uninstall:
+	systemctl --user stop mesh 2>/dev/null || true
+	systemctl --user disable mesh 2>/dev/null || true
+	rm -f ~/.config/systemd/user/mesh.service
+	rm -f ~/.local/share/applications/mesh.desktop
+	rm -f ~/.config/autostart/mesh.desktop
+	systemctl --user daemon-reload
 ```
 
 ---

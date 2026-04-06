@@ -17,7 +17,7 @@ CREATE TABLE nodes (
     summary     TEXT,                            -- AI-generated summary
     source_url  TEXT,                            -- original URL if applicable
     image_key   TEXT,                            -- MinIO object key if applicable
-    embedding   vector(384),                     -- nomic-embed-text dimension
+    embedding   vector(768),                     -- EmbeddingGemma-300M dimension
     version     INTEGER NOT NULL DEFAULT 1,      -- optimistic concurrency control
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()

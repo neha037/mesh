@@ -8,6 +8,7 @@ package storage
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,28 +21,69 @@ func (q *Queries) DeleteNode(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const deleteNodeReturningTag = `-- name: DeleteNodeReturningTag :execresult
+DELETE FROM nodes WHERE id = $1
+`
+
+func (q *Queries) DeleteNodeReturningTag(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deleteNodeReturningTag, id)
+}
+
+const getNode = `-- name: GetNode :one
+SELECT id, type, title, content, summary, source_url, image_key, embedding, version, created_at, updated_at, status FROM nodes WHERE id = $1
+`
+
+func (q *Queries) GetNode(ctx context.Context, id pgtype.UUID) (Node, error) {
+	row := q.db.QueryRow(ctx, getNode, id)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Title,
+		&i.Content,
+		&i.Summary,
+		&i.SourceUrl,
+		&i.ImageKey,
+		&i.Embedding,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
 const listNodes = `-- name: ListNodes :many
-SELECT id, title, source_url, created_at
+SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
 FROM nodes
-WHERE ($2::TIMESTAMPTZ IS NULL OR created_at < $2)
-ORDER BY created_at DESC
+WHERE ($2::TIMESTAMPTZ IS NULL OR
+      (created_at, id) < ($2::TIMESTAMPTZ, $3::uuid))
+ORDER BY created_at DESC, id DESC
 LIMIT $1
 `
 
 type ListNodesParams struct {
-	Limit  int32              `json:"limit"`
-	Cursor pgtype.Timestamptz `json:"cursor"`
+	Limit      int32              `json:"limit"`
+	CursorTime pgtype.Timestamptz `json:"cursor_time"`
+	CursorID   pgtype.UUID        `json:"cursor_id"`
 }
 
 type ListNodesRow struct {
 	ID        pgtype.UUID        `json:"id"`
+	Type      string             `json:"type"`
 	Title     string             `json:"title"`
+	Content   pgtype.Text        `json:"content"`
+	Summary   pgtype.Text        `json:"summary"`
 	SourceUrl pgtype.Text        `json:"source_url"`
+	ImageKey  pgtype.Text        `json:"image_key"`
+	Status    string             `json:"status"`
+	Version   int32              `json:"version"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]ListNodesRow, error) {
-	rows, err := q.db.Query(ctx, listNodes, arg.Limit, arg.Cursor)
+	rows, err := q.db.Query(ctx, listNodes, arg.Limit, arg.CursorTime, arg.CursorID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +93,16 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]ListNod
 		var i ListNodesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Type,
 			&i.Title,
+			&i.Content,
+			&i.Summary,
 			&i.SourceUrl,
+			&i.ImageKey,
+			&i.Status,
+			&i.Version,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -66,7 +115,7 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]ListNod
 }
 
 const listRecentNodes = `-- name: ListRecentNodes :many
-SELECT id, title, source_url, created_at
+SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
 FROM nodes
 ORDER BY created_at DESC
 LIMIT $1
@@ -74,9 +123,16 @@ LIMIT $1
 
 type ListRecentNodesRow struct {
 	ID        pgtype.UUID        `json:"id"`
+	Type      string             `json:"type"`
 	Title     string             `json:"title"`
+	Content   pgtype.Text        `json:"content"`
+	Summary   pgtype.Text        `json:"summary"`
 	SourceUrl pgtype.Text        `json:"source_url"`
+	ImageKey  pgtype.Text        `json:"image_key"`
+	Status    string             `json:"status"`
+	Version   int32              `json:"version"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListRecentNodes(ctx context.Context, limit int32) ([]ListRecentNodesRow, error) {
@@ -90,9 +146,16 @@ func (q *Queries) ListRecentNodes(ctx context.Context, limit int32) ([]ListRecen
 		var i ListRecentNodesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.Type,
 			&i.Title,
+			&i.Content,
+			&i.Summary,
 			&i.SourceUrl,
+			&i.ImageKey,
+			&i.Status,
+			&i.Version,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -111,7 +174,7 @@ ON CONFLICT (source_url) WHERE source_url IS NOT NULL
 DO UPDATE SET title = EXCLUDED.title,
              content = EXCLUDED.content,
              updated_at = now()
-RETURNING id, type, title, source_url, created_at, updated_at,
+RETURNING id, type, title, source_url, status, created_at, updated_at,
           (xmax = 0) AS created
 `
 
@@ -127,6 +190,7 @@ type UpsertRawNodeRow struct {
 	Type      string             `json:"type"`
 	Title     string             `json:"title"`
 	SourceUrl pgtype.Text        `json:"source_url"`
+	Status    string             `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	Created   bool               `json:"created"`
@@ -145,6 +209,7 @@ func (q *Queries) UpsertRawNode(ctx context.Context, arg UpsertRawNodeParams) (U
 		&i.Type,
 		&i.Title,
 		&i.SourceUrl,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Created,

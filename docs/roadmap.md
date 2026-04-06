@@ -42,8 +42,8 @@ Build the core infrastructure and basic page ingestion.
 
 Automatic content processing with AI.
 
-- Tag extraction using local LLM (Ollama + Mistral 7B)
-- Embedding generation (nomic-embed-text, 384 dimensions)
+- Tag extraction using local LLM (Ollama + Gemma 4 E4B, structured JSON output)
+- Embedding generation (EmbeddingGemma-300M, 768 dimensions, Matryoshka)
 - Automatic edge building between related content
 - Fallback NLP when Ollama is unavailable
 
@@ -69,12 +69,14 @@ Interactive knowledge graph in the browser.
 
 ## Phase 5: Multi-Modal and Journaling
 
-Beyond web pages.
+Beyond web pages — images, PDFs, voice notes, and export.
 
-- Image upload and storage (MinIO)
-- Journal entries with rich text
-- Vision model descriptions for images
-- Timeline view
+- Image upload and AI description (Gemma 4 native vision)
+- PDF ingestion with native parsing and OCR (Gemma 4)
+- Voice note ingestion with native ASR transcription (Gemma 4)
+- Journal entries with rich text editor
+- Subgraph export (Markdown, JSON-LD, PNG, Obsidian-compatible)
+- Gallery and timeline views
 
 ## Phase 6: Anti-Echo Chamber Engine
 
@@ -84,6 +86,7 @@ Fight intellectual stagnation.
 - Knowledge gap detection
 - Bridge detection between isolated clusters
 - Wildcard injection from external sources (Wikipedia, HN, arXiv)
+- Automatic de-duplication (cosine similarity > 0.90, merge suggestions)
 - Serendipity metrics
 
 ## Phase 7: Spaced Repetition and Semantic Depth
@@ -92,5 +95,13 @@ Long-term retention.
 
 - FSRS v5 spaced repetition algorithm
 - Daily review cards
+- Knowledge decay visualization (node opacity maps to retrievability)
 - "Surprisingly similar" content suggestions
 - Semantic edge building (nightly batch)
+
+## Future Enhancements (Post-Phase 7)
+
+- LoRA fine-tuning for personalized tagging (learns user's taxonomy)
+- Mobile companion app for voice note capture
+- RSS feed ingestion
+- Plugin system for custom sources (Kindle, Twitter, Pocket)

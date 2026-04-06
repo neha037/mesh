@@ -1,16 +1,30 @@
 package main
 
 import (
-	"log"
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/neha037/mesh/internal/config"
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("mesh-worker starting (workers=%d, log_level=%s)", cfg.WorkerCount, cfg.LogLevel)
+	slog.Info("mesh-worker starting", "workers", cfg.WorkerCount, "log_level", cfg.LogLevel)
+
+	// Block until signal — prevents Docker restart loop while worker is a stub.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	<-ctx.Done()
+	slog.Info("mesh-worker stopped")
 }

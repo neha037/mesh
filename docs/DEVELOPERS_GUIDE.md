@@ -291,6 +291,8 @@ go tool cover -html=coverage.out
 | `MINIO_SECRET_KEY` | Yes | — | MinIO secret key |
 | `MINIO_BUCKET` | No | `mesh-images` | MinIO bucket name |
 | `OLLAMA_HOST` | No | `http://ollama:11434` | Ollama API URL |
+| `OLLAMA_MODEL` | No | `gemma4:e4b` | LLM model for tag extraction, summarization, image/audio understanding |
+| `EMBEDDING_MODEL` | No | `embeddinggemma:300m-qat-q8_0` | Embedding model (768-dim, Matryoshka) |
 | `WORKER_COUNT` | No | `4` | Number of worker goroutines |
 | `LOG_LEVEL` | No | `info` | Log level (debug, info, warn, error) |
 
@@ -314,8 +316,8 @@ make pull-models
 
 | Model | Purpose | Size | RAM |
 |-------|---------|------|-----|
-| `nomic-embed-text` | 384-dim embeddings for semantic search | ~270 MB | ~500 MB |
-| `mistral:7b-instruct-q4_0` | Tag extraction, summaries | ~4 GB | ~6 GB |
+| `embeddinggemma:300m-qat-q8_0` | 768-dim embeddings for semantic search (Matryoshka: 768/512/256/128) | ~338 MB | ~200 MB |
+| `gemma4:e4b` | Tag extraction, summaries, image understanding, audio transcription | ~4.5 GB | ~6 GB |
 
 ### Stopping Ollama (to free RAM)
 
@@ -367,7 +369,7 @@ if err != nil {
 | Migration fails | Check `DATABASE_URL` is set; verify PostgreSQL is running and healthy |
 | Ollama OOM | Use quantized models (Q4_0); increase Docker memory limit |
 | sqlc errors | Ensure `sqlc.yaml` paths are correct; run `make migrate-up` first |
-| testcontainers fail | Ensure Docker daemon is running; check Docker socket permissions |
+| testcontainers fail | Ensure Docker daemon is running; check Docker socket permissions. If Ryuk reaper crashes, `make test-integration` already sets `TESTCONTAINERS_RYUK_DISABLED=true` |
 | Docker group not effective | If user is SSSD/FreeIPA-managed, `newgrp docker` only affects current shell. Use `sg docker -c "<command>"` or log out/in. The systemd service wraps with `sg docker` automatically |
 | Tray icon not showing | `yad` doesn't work on Wayland. The tray uses AppIndicator3 (Python). Install `gnome-shell-extension-appindicator` and enable it |
 

@@ -6,7 +6,21 @@ DATABASE_URL ?= postgres://mesh:$(PG_PASSWORD)@localhost:5432/mesh?sslmode=disab
 .PHONY: build run-api run-worker test test-integration \
        migrate-up migrate-down \
        docker-up docker-up-ai docker-down docker-logs \
-       lint sqlc pull-models install uninstall
+       lint sqlc pull-models install uninstall \
+       fmt tidy coverage
+
+fmt:
+	gofmt -w .
+
+tidy:
+	go mod tidy
+
+coverage:
+	go test -coverprofile=coverage.out -race ./...
+	go tool cover -func=coverage.out
+
+setup:
+	@test -f .env || (cp .env.example .env && echo "Created .env from .env.example — edit passwords before use")
 
 build:
 	go build -o bin/api ./cmd/api
@@ -22,7 +36,7 @@ test:
 	go test ./... -v -race -count=1
 
 test-integration:
-	go test ./... -v -race -tags=integration
+	TESTCONTAINERS_RYUK_DISABLED=true go test ./... -v -race -tags=integration -count=1
 
 migrate-up:
 	migrate -path migrations -database "$(DATABASE_URL)" up
@@ -49,8 +63,8 @@ sqlc:
 	sqlc generate
 
 pull-models:
-	docker exec mesh-ollama ollama pull nomic-embed-text
-	docker exec mesh-ollama ollama pull mistral:7b-instruct-q4_0
+	docker exec mesh-ollama ollama pull embeddinggemma:300m-qat-q8_0
+	docker exec mesh-ollama ollama pull gemma4:e4b
 
 install:
 	bash scripts/install.sh

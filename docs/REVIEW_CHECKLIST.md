@@ -23,15 +23,15 @@
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
 | 2.1 | All exported functions/types have purpose-clear names (no stuttering: `node.NodeType` → `node.Type`) | 1+ | | |
-| 2.2 | Errors are wrapped with context (`fmt.Errorf("doing X: %w", err)`) | 1+ | | |
-| 2.3 | No `panic()` in library code; only in main() for unrecoverable setup failures | 1+ | | |
-| 2.4 | `context.Context` is the first parameter where applicable | 1+ | | |
-| 2.5 | All external HTTP calls use `context.WithTimeout` | 1 | | |
-| 2.6 | Graceful shutdown via signal handling (SIGINT/SIGTERM) | 1 | | |
-| 2.7 | No global mutable state; dependencies injected via constructors | 1+ | | |
-| 2.8 | Interfaces defined where consumed, not where implemented | 1+ | | |
-| 2.9 | Goroutines have clear ownership and shutdown paths | 2 | | |
-| 2.10 | `go vet` and `golangci-lint` pass with zero warnings | 1+ | | |
+| 2.2 | Errors are wrapped with context (`fmt.Errorf("doing X: %w", err)`) | 1+ | PASS | Consistent %w wrapping throughout |
+| 2.3 | No `panic()` in library code; only in main() for unrecoverable setup failures | 1+ | PASS | No panics found |
+| 2.4 | `context.Context` is the first parameter where applicable | 1+ | PASS | All repo methods take ctx first |
+| 2.5 | All external HTTP calls use `context.WithTimeout` | 1 | N/A | No external calls yet |
+| 2.6 | Graceful shutdown via signal handling (SIGINT/SIGTERM) | 1 | PASS | signal.NotifyContext + 10s shutdown |
+| 2.7 | No global mutable state; dependencies injected via constructors | 1+ | PASS | Handler.New() injects deps |
+| 2.8 | Interfaces defined where consumed, not where implemented | 1+ | PASS | domain.NodeRepository, handler.Pinger |
+| 2.9 | Goroutines have clear ownership and shutdown paths | 2 | N/A - Phase 2 | |
+| 2.10 | `go vet` and `golangci-lint` pass with zero warnings | 1+ | PASS | Clean as of April 6, 2026 |
 
 ## 3. API Completeness
 
@@ -69,7 +69,7 @@
 | 4.3 | Schema matches blueprint: nodes, tags, node_tags, edges, jobs tables | 1 | PASS | All 7 tables in initial migration |
 | 4.4 | review_schedule table present | 7 | PASS | Included in initial migration |
 | 4.5 | discovery_runs table present | 6 | PASS | Included in initial migration |
-| 4.6 | pgvector extension enabled, `embedding vector(384)` column on nodes | 2 | PASS | In initial migration |
+| 4.6 | pgvector extension enabled, `embedding vector(768)` column on nodes | 2 | PASS | In initial migration |
 | 4.7 | pg_trgm extension enabled, trigram indexes on title/content | 3 | PASS | In initial migration |
 | 4.8 | HNSW index on embeddings with appropriate parameters | 2 | PASS | m=16, ef_construction=64 |
 | 4.9 | Job queue index: `idx_jobs_pending` with partial index on status='pending' | 1 | PASS | |
@@ -105,7 +105,7 @@
 |---|-----------|-------|--------|-------|
 | 6.1 | Ollama HTTP client implemented (generate + embeddings endpoints) | 2 | | |
 | 6.2 | Tag extraction prompt produces JSON array of 3-8 domain-specific concepts | 2 | | |
-| 6.3 | Embedding generation uses `nomic-embed-text` (384-dim) | 2 | | |
+| 6.3 | Embedding generation uses `EmbeddingGemma-300M` (768-dim, Matryoshka) | 2 | | |
 | 6.4 | Retry logic with circuit breaker on Ollama calls | 2 | | |
 | 6.5 | Fallback to `jdkato/prose` NER when Ollama unavailable | 2 | | |
 | 6.6 | Embeddings skipped and queued for batch when Ollama down | 2 | | |
@@ -129,23 +129,28 @@
 | 7.12 | Loading skeletons and error boundaries | 4 | | |
 | 7.13 | Journal editor (tiptap or react-quill) | 5 | | |
 | 7.14 | Image gallery view | 5 | | |
-| 7.15 | Review card UI with rating buttons | 7 | | |
-| 7.16 | Discovery dashboard with cluster visualization | 6 | | |
-| 7.17 | TypeScript strict mode enabled | 4 | | |
+| 7.15 | PDF upload and AI parsing UI | 5 | | |
+| 7.16 | Voice note recording/upload UI | 5 | | |
+| 7.17 | Subgraph export UI (Markdown, JSON-LD, PNG, Obsidian) | 5 | | |
+| 7.18 | Duplicate merge side-by-side comparison UI | 6 | | |
+| 7.19 | Knowledge decay overlay toggle on graph canvas | 7 | | |
+| 7.20 | Review card UI with rating buttons | 7 | | |
+| 7.21 | Discovery dashboard with cluster visualization | 6 | | |
+| 7.22 | TypeScript strict mode enabled | 4 | | |
 
 ## 8. Testing
 
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
-| 8.1 | Unit tests for HTTP handlers (table-driven) | 1 | | |
-| 8.2 | Integration tests using `testcontainers-go` with real PostgreSQL | 1 | | |
-| 8.3 | Tests run with `-race` flag | 1+ | | |
+| 8.1 | Unit tests for HTTP handlers (table-driven) | 1 | PASS | 17 tests in handler_test.go |
+| 8.2 | Integration tests using `testcontainers-go` with real PostgreSQL | 1 | PASS | 7 tests with pgvector/pgvector:pg16 |
+| 8.3 | Tests run with `-race` flag | 1+ | PASS | -race flag in Makefile and CI |
 | 8.4 | FSRS algorithm tests against reference implementation values | 7 | | |
 | 8.5 | Worker pipeline integration test (ingest → process → edges) | 2 | | |
 | 8.6 | Search tests covering text, semantic, and hybrid modes | 3 | | |
 | 8.7 | Frontend: component tests exist for key components | 4 | | |
-| 8.8 | No test files import from other test files | 1+ | | |
-| 8.9 | CI-friendly: tests don't depend on external services beyond testcontainers | 1+ | | |
+| 8.8 | No test files import from other test files | 1+ | PASS | Clean test isolation |
+| 8.9 | CI-friendly: tests don't depend on external services beyond testcontainers | 1+ | PASS | GitHub Actions CI pipeline in place |
 
 ## 9. Docker & Deployment
 
@@ -224,8 +229,8 @@
 - [ ] Web scraper with colly (timeout, robots.txt, User-Agent rotation)
 - [ ] Circuit breaker (sony/gobreaker)
 - [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)
-- [ ] Unit tests for handlers (table-driven)
-- [ ] Integration tests with testcontainers-go
+- [x] Unit tests for handlers (table-driven)
+- [x] Integration tests with testcontainers-go
 - [ ] End-to-end verification: curl URL → job → scrape → store
 
 ### Phase 2: Processing and Intelligence — "The Brain" (Weeks 4-6)
@@ -236,7 +241,7 @@
 - [ ] Ollama container in docker-compose (profile: ai)
 - [ ] Ollama Go client (generate + embeddings)
 - [ ] Tag extraction prompt engineering
-- [ ] Embedding generation (nomic-embed-text, 384-dim)
+- [ ] Embedding generation (EmbeddingGemma-300M, 768-dim)
 - [ ] Tag UPSERT and node_tags association
 - [ ] Auto-edge generation (2+ shared tags)
 - [ ] Optimistic concurrency control
@@ -274,14 +279,17 @@
 
 ### Phase 5: Multi-Modal and Journaling — "The Human Element" (Weeks 15-18)
 
-- [ ] MinIO bucket initialization
+- [ ] MinIO bucket initialization (mesh-images, mesh-documents, mesh-audio)
 - [ ] Image upload endpoint (multipart, validation, MinIO storage)
 - [ ] Image serving with presigned URLs
-- [ ] Vision model description (if Ollama available)
+- [ ] Image understanding via Gemma 4 native vision (no separate model)
+- [ ] PDF ingestion endpoint (multipart, Gemma 4 native parsing/OCR)
+- [ ] Voice note ingestion endpoint (MP3/WAV ≤30s, Gemma 4 native ASR)
 - [ ] Journal entry page (rich text editor)
 - [ ] Journal auto-processing (tags, embedding, edges)
 - [ ] Image gallery view
 - [ ] Timeline view
+- [ ] Subgraph export (Markdown, JSON-LD, PNG, Obsidian-compatible)
 
 ### Phase 6: Anti-Echo Chamber Engine — "Discovery" (Weeks 19-24)
 
@@ -295,14 +303,16 @@
 - [ ] Catch-up cron logic (advisory locks, missed run detection)
 - [ ] External API resilience (circuit breakers per source)
 - [ ] Serendipity metrics tracking
+- [ ] Automatic de-duplication (cosine sim > 0.90, merge suggestions UI)
 
 ### Phase 7: Spaced Repetition and Semantic Depth — "The Slow Burn" (Weeks 25-30)
 
 - [ ] FSRS algorithm ported to Go
 - [ ] Auto-enroll nodes into review schedule
 - [ ] FSRS unit tests against reference values
-- [ ] Review API (today, submit rating, stats)
+- [ ] Review API (today, submit rating, stats, health)
 - [ ] Review card UI
+- [ ] Knowledge decay visualization (node opacity = retrievability, color gradient)
 - [ ] Nightly semantic edge builder batch job
 - [ ] "Surprisingly similar" section in node detail
 - [ ] Distinct edge styling for semantic edges

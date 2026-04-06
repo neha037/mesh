@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 2, 2026
+**Last Updated:** April 6, 2026
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -14,6 +14,9 @@ This is a living document tracking what has been completed, what's in progress, 
 | April 1, 2026 | Documentation framework created (README, Developer's Guide, Review Checklist, this document) |
 | April 1, 2026 | Phase 1 Week 1 — Project scaffolding complete (Git, Go module, Docker Compose, migrations, Dockerfiles, Makefile) |
 | April 2, 2026 | Phase 1 Week 2 — HTTP server, chi router, CORS, ingest/raw endpoint, recent nodes endpoint, browser extension (auto-save, view all, delete), systemd service + tray icon (Wayland AppIndicator), URL dedup (upsert), keyset pagination, connection pool tuning, GitHub Pages documentation site |
+| April 6, 2026 | AI model upgrade — Adopted Gemma 4 ecosystem: gemma4:e4b (LLM), EmbeddingGemma-300M (embeddings). Updated blueprint, migration (384→768 dim), Makefile, config |
+| April 6, 2026 | Blueprint v1.2 — Added 6 new features: PDF ingestion, voice notes (Gemma 4 ASR), auto de-duplication, knowledge decay visualization, subgraph export, LoRA personalization (future). Fixed stale prompt/library refs. |
+| April 6, 2026 | Code quality review — Fixed 8 lint issues, refactored main.go (exitAfterDefer), added deep health check (DB ping), request ID correlation in error logs, 17 unit tests (handler layer), 7 integration tests (testcontainers-go + pgvector), CI/CD pipeline (GitHub Actions) |
 
 ---
 
@@ -59,8 +62,8 @@ This is a living document tracking what has been completed, what's in progress, 
 | Caching | **ristretto (in-process)** | No Redis needed for single-user; ~10ns reads vs ~100us for Redis over loopback |
 | Object storage | **MinIO** | S3-compatible, single container, Go-native client |
 | AI/NLP | **Ollama (local)** | Zero data leaves machine; optional via Docker profiles |
-| Embedding model | **nomic-embed-text (384-dim)** | Standardized from Phase 2 onward |
-| LLM | **mistral:7b-instruct-q4_0** | Fits in 16 GB RAM with all other services |
+| Embedding model | **EmbeddingGemma-300M (768-dim, Matryoshka)** | Standardized from Phase 2 onward |
+| LLM | **Gemma 4 E4B** | Multimodal (text+image+audio), structured output, 128K context, fits in 16 GB RAM |
 | Frontend | **React + TypeScript + Cytoscape.js** | Larger ecosystem than Vue; Cytoscape has built-in graph algorithms |
 | Graph viz library | **Cytoscape.js** | Built-in BFS/DFS/PageRank, multiple layouts, canvas rendering for 2-5K nodes — rejected D3.js (lower-level) and React Flow (no graph algorithms) |
 | Orchestration | **Docker Compose** (MVP) | Simple lifecycle; K3s optional for Phase 7+ |
@@ -98,18 +101,27 @@ mesh/
 │   │   ├── router.go                   # chi router with middleware
 │   │   └── handler/
 │   │       ├── handler.go              # Handler struct with dependencies
-│   │       └── ingest.go               # Ingest, list, delete handlers
+│   │       ├── handler_test.go         # Unit tests (17 table-driven tests)
+│   │       ├── ingest.go              # Ingest handler
+│   │       ├── nodes.go               # List, delete handlers
+│   │       └── response.go            # JSON helpers, health check, logError
 │   ├── storage/
 │   │   ├── db.go                       # Database interface (sqlc generated)
 │   │   ├── models.go                   # Data models (sqlc generated)
 │   │   ├── nodes.sql.go                # Node queries (sqlc generated)
+│   │   ├── node_repo.go                # NodeRepo adapter (domain interface)
+│   │   ├── node_repo_integration_test.go # Integration tests (testcontainers)
 │   │   ├── postgres.go                 # PostgreSQL connection pool setup
 │   │   └── queries/nodes.sql           # SQL query definitions
-│   └── domain/                         # Core types (empty, Week 2)
+│   └── domain/
+│       ├── node.go                     # Node type, interfaces
+│       └── errors.go                   # Domain errors (ErrNotFound)
 ├── migrations/
 │   ├── embed.go                        # Embed migrations for binary
 │   ├── 001_initial_schema.up.sql       # Full schema: 7 tables + indexes
-│   └── 001_initial_schema.down.sql     # Reverse migration
+│   ├── 001_initial_schema.down.sql     # Reverse migration
+│   ├── 002_unique_source_url.up.sql    # Unique source_url constraint
+│   └── 002_unique_source_url.down.sql  # Reverse migration
 ├── deploy/
 │   ├── docker-compose.yml              # PostgreSQL, MinIO, Ollama, API, Worker
 │   ├── Dockerfile.api                  # Multi-stage Go build for API
@@ -130,9 +142,17 @@ mesh/
 │   └── mesh.desktop                    # Desktop entry for autostart
 ├── docs/
 │   ├── PROJECT_MESH_BLUEPRINT.md       # Full architectural blueprint
+│   ├── PROJECT_PROGRESS.md             # This file
 │   ├── DEVELOPERS_GUIDE.md             # Developer setup and conventions
 │   ├── REVIEW_CHECKLIST.md             # Codebase audit framework
-│   └── PROJECT_PROGRESS.md            # This file
+│   ├── _config.yml                     # Jekyll configuration
+│   ├── index.md                        # Docs homepage
+│   ├── api-reference.md                # API endpoint reference
+│   ├── getting-started.md              # Quick start guide
+│   ├── roadmap.md                      # Feature roadmap
+│   ├── browser-extension.md            # Extension usage guide
+│   ├── system-tray.md                  # System tray documentation
+│   └── troubleshooting.md             # Common issues
 └── .idea/                              # GoLand IDE configuration
 ```
 
@@ -142,7 +162,7 @@ mesh/
 |----------|--------------|
 | **Workers** | No job queue claim logic, no processor (Week 3) |
 | **Ingestion** | No scraper, no circuit breaker (Week 3) |
-| **Tests** | No test files (Week 3) |
+| **Tests** | Unit + integration tests exist; more coverage needed for config, router |
 | **Frontend** | No React project (Phase 4) |
 
 ---
@@ -168,7 +188,7 @@ mesh/
 
 ### Phase 1: Foundation & Ingestion — "The Senses" — IN PROGRESS
 
-**Progress: 15/21 items**
+**Progress: 17/21 items**
 
 - [x] Initialize Go module (`github.com/neha037/mesh`)
 - [x] Create project directory structure
@@ -195,8 +215,8 @@ mesh/
 - [ ] Web scraper (colly, timeouts, robots.txt)
 - [ ] Circuit breaker (sony/gobreaker)
 - [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)
-- [ ] Unit tests for handlers (table-driven)
-- [ ] Integration tests with testcontainers-go
+- [x] Unit tests for handlers (table-driven, 17 tests)
+- [x] Integration tests with testcontainers-go (7 tests, pgvector/pgvector:pg16)
 
 ### Phases 2-7 — NOT STARTED
 
@@ -206,14 +226,13 @@ See [Review Checklist](REVIEW_CHECKLIST.md) for detailed per-phase checklists.
 
 ## What's Next
 
-Week 1 scaffolding is complete. Next is **Week 2 — Ingestion API**:
+Tests and CI are now in place. Next is **Week 3 — Resilience**:
 
-1. **Implement HTTP server** with `chi` router and signal handling
+1. **Web scraper** using `colly` with `context.WithTimeout` (30s), User-Agent rotation, robots.txt respect
 2. **`POST /api/v1/ingest/url`** — validate URL, create node, enqueue `process_url` job, return `202 Accepted`
 3. **`POST /api/v1/ingest/text`** — validate title/content, create node, enqueue `process_text` job, return `201 Created`
-4. **PostgreSQL repository layer** using `pgx` + `sqlc`
-5. **Request logging middleware**
-6. **CORS middleware**
+4. **Circuit breaker** (`sony/gobreaker`) — open after 5 failures, half-open after 60s
+5. **Job queue claim logic** — `SELECT ... FOR UPDATE SKIP LOCKED`
 
 ---
 

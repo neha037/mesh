@@ -1,0 +1,11 @@
+.git/
+bin/
+extension/
+docs/
+scripts/
+*.md
+.env
+.env.example
+.idea/
+.claude/
+.gitignore
