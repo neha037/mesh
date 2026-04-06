@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -19,6 +20,24 @@ type JobRepo struct {
 // NewJobRepo returns a JobRepo backed by the given Queries.
 func NewJobRepo(q *Queries) *JobRepo {
 	return &JobRepo{q: q}
+}
+
+func (r *JobRepo) CreateJob(ctx context.Context, jobType string, payload any, maxAttempts int32) (string, error) {
+	payloadBuf, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshaling job payload: %w", err)
+	}
+
+	row, err := r.q.CreateJob(ctx, CreateJobParams{
+		Type:        jobType,
+		Payload:     payloadBuf,
+		MaxAttempts: maxAttempts,
+	})
+	if err != nil {
+		return "", fmt.Errorf("creating job: %w", err)
+	}
+
+	return uuidToString(row.ID), nil
 }
 
 // ClaimJob atomically claims the next pending job using FOR UPDATE SKIP LOCKED.
@@ -99,10 +118,4 @@ func claimRowToJob(row *ClaimJobRow) *domain.Job {
 	return j
 }
 
-func parseUUID(id string) (pgtype.UUID, error) {
-	var uuid pgtype.UUID
-	if err := uuid.Scan(id); err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid ID %q: %w", id, err)
-	}
-	return uuid, nil
-}
+

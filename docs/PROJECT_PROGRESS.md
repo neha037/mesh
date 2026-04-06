@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 6, 2026 (evening)
+**Last Updated:** April 7, 2026 (evening)
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -18,14 +18,16 @@ This is a living document tracking what has been completed, what's in progress, 
 | April 6, 2026 | Blueprint v1.2 — Added 6 new features: PDF ingestion, voice notes (Gemma 4 ASR), auto de-duplication, knowledge decay visualization, subgraph export, LoRA personalization (future). Fixed stale prompt/library refs. |
 | April 6, 2026 | Code quality review — Fixed 8 lint issues, refactored main.go (exitAfterDefer), added deep health check (DB ping), request ID correlation in error logs, 17 unit tests (handler layer), 7 integration tests (testcontainers-go + pgvector), CI/CD pipeline (GitHub Actions) |
 | April 6, 2026 | Phase 1 Week 3 — Job queue (FOR UPDATE SKIP LOCKED), POST /ingest/url (202 Accepted), POST /ingest/text (201 Created), colly web scraper (UA rotation, robots.txt, HTML cleaning), per-domain circuit breaker (gobreaker, 5-failure threshold), worker pool (configurable goroutines, exponential backoff, graceful shutdown), transactional node+job creation, 15 new unit tests |
+| April 7, 2026 | Phase 2 — Ollama client, tag extraction (LLM + fallback NLP), embedding generation, auto edge-building (tag_shared + semantic), worker pipeline enhancement, 25+ new tests |
+| April 7, 2026 | Phase 2 enhancements — Ollama client circuit breaker (3-failure threshold, 60s recovery), fallback NLP when Ollama unavailable, 3 additional tests, full suite passes with -race |
 
 ---
 
 ## Overall Status
 
-**Current Phase:** Phase 1 — Foundation & Ingestion ("The Senses")
+**Current Phase:** Phase 3 — Graph Exploration & Serendipity ("The Adjacent Possible")
 
-**Week 1 scaffolding is complete.** Git repo initialized, Go module created, Docker Compose configured, initial SQL migration written, Dockerfiles and Makefile ready.
+**Phase 2 is complete.** Local AI integration via Ollama is fully functional, supporting automated tag extraction and vector embedding generation. The worker pipeline now orchestrates content refinement from ingestion to relationship discovery.
 
 ---
 
@@ -98,31 +100,32 @@ mesh/
 │   └── worker/main.go                  # Stub worker entrypoint
 ├── internal/
 │   ├── config/config.go                # Environment-based config loading
+│   ├── ollama/                         # Ollama HTTP client (tags, embeddings)
+│   ├── nlp/                            # NLP service with rule-based fallback
 │   ├── api/
-│   │   ├── router.go                   # chi router with middleware
-│   │   └── handler/
-│   │       ├── handler.go              # Handler struct with dependencies
-│   │       ├── handler_test.go         # Unit tests (shared mocks/helpers)
-│   │       ├── ingest.go              # POST /ingest/raw handler
-│   │       ├── ingest_url.go          # POST /ingest/url handler (202 Accepted)
-│   │       ├── ingest_url_test.go     # Ingest URL tests (8 cases)
-│   │       ├── ingest_text.go         # POST /ingest/text handler (201 Created)
-│   │       ├── ingest_text_test.go    # Ingest text tests (7 cases)
-│   │       ├── nodes.go               # List, get, delete handlers
-│   │       └── response.go            # JSON helpers, health check, logError
+...
 │   ├── storage/
 │   │   ├── db.go                       # Database interface (sqlc generated)
 │   │   ├── models.go                   # Data models (sqlc generated)
 │   │   ├── nodes.sql.go                # Node queries (sqlc generated)
 │   │   ├── jobs.sql.go                 # Job queries (sqlc generated)
+│   │   ├── tags.sql.go                 # Tag queries (sqlc generated)
+│   │   ├── edges.sql.go                # Edge queries (sqlc generated)
 │   │   ├── node_repo.go                # NodeRepo adapter (domain interface)
-│   │   ├── job_repo.go                 # JobRepo adapter (claim, complete, fail, retry)
+│   │   ├── tag_repo.go                 # TagRepo adapter
+│   │   ├── edge_repo.go                # EdgeRepo adapter (vector search)
+│   │   ├── job_repo.go                 # JobRepo adapter (claim, complete, fail, retry, create)
 │   │   ├── ingest_repo.go             # IngestRepo (transactional node+job creation)
 │   │   ├── node_repo_integration_test.go # Integration tests (testcontainers)
+│   │   ├── tag_repo_integration_test.go  # Tag integration tests
+│   │   ├── edge_repo_integration_test.go # Edge integration tests
 │   │   ├── postgres.go                 # PostgreSQL connection pool setup
+│   │   ├── util.go                     # UUID helpers
 │   │   └── queries/
 │   │       ├── nodes.sql               # Node SQL queries
-│   │       └── jobs.sql                # Job SQL queries (claim, create, complete, fail)
+│   │       ├── jobs.sql                # Job SQL queries
+│   │       ├── tags.sql                # Tag SQL queries
+│   │       └── edges.sql               # Edge SQL queries
 │   ├── scraper/
 │   │   ├── scraper.go                  # Colly web scraper (UA rotation, HTML cleaning)
 │   │   ├── scraper_test.go             # Scraper tests (httptest, 5 cases)
@@ -238,7 +241,22 @@ mesh/
 - [x] Unit tests for handlers (table-driven, 46 tests)
 - [x] Integration tests with testcontainers-go (7 tests, pgvector/pgvector:pg16)
 
-### Phases 2-7 — NOT STARTED
+### Phase 2: Processing & Intelligence — "The Brain" — COMPLETE
+
+**Progress: 10/10 items — COMPLETE**
+
+- [x] **Ollama client** — Implemented HTTP client for tags and embeddings
+- [x] **NLP Fallback** — Rule-based tag extraction using `prose/v2`
+- [x] **NLP Service** — Orchestrator for AI and fallback processing
+- [x] **Tag Repository** — Hierarchical and flat tag management
+- [x] **Edge Repository** — Semantic similarity and tag-shared relationship building
+- [x] **pgvector Integration** — Vector distance search for semantic edges
+- [x] **Optimistic Concurrency** — Version-based embedding updates
+- [x] **Worker Pipeline** — 4-stage job chaining (Scrape -> Tag -> Embed -> Edge)
+- [x] **Component Wiring** — Full dependency injection in worker entrypoint
+- [x] **Integration Testing** — 10+ new tests for storage and pipeline
+
+### Phases 3-7 — NOT STARTED
 
 See [Review Checklist](REVIEW_CHECKLIST.md) for detailed per-phase checklists.
 

@@ -41,3 +41,14 @@ WHERE id = $1;
 UPDATE nodes
 SET status = $2, updated_at = now()
 WHERE id = $1;
+
+-- name: UpdateNodeEmbedding :execresult
+-- Store embedding with optimistic concurrency control.
+UPDATE nodes
+SET embedding = $2, version = version + 1, updated_at = now()
+WHERE id = $1 AND version = $3;
+
+-- name: GetNodeContent :one
+-- Get node content and metadata for NLP processing.
+SELECT id, type, title, content, status, version
+FROM nodes WHERE id = $1;

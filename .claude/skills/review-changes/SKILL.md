@@ -1,5 +1,5 @@
 ---
-name: Review Changes
+name: review-changes
 model: sonnet
 description: Perform a structured code review using change detection and impact analysis
 ---

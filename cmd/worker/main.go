@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"github.com/neha037/mesh/internal/config"
+	"github.com/neha037/mesh/internal/nlp"
+	"github.com/neha037/mesh/internal/ollama"
 	"github.com/neha037/mesh/internal/scraper"
 	"github.com/neha037/mesh/internal/storage"
 	"github.com/neha037/mesh/internal/worker"
@@ -53,8 +55,14 @@ func run() error {
 	queries := storage.New(pool)
 	jobRepo := storage.NewJobRepo(queries)
 	nodeRepo := storage.NewNodeRepo(queries)
+	tagRepo := storage.NewTagRepo(queries)
+	edgeRepo := storage.NewEdgeRepo(queries)
+
+	ollamaClient := ollama.NewClient(cfg.OllamaHost, cfg.OllamaModel, cfg.EmbeddingModel)
+	nlpSvc := nlp.NewService(ollamaClient)
+
 	scraperSvc := scraper.NewService()
-	proc := worker.NewProcessor(scraperSvc, nodeRepo)
+	proc := worker.NewProcessor(scraperSvc, nodeRepo, tagRepo, edgeRepo, jobRepo, nlpSvc)
 
 	wp := worker.NewPool(jobRepo, proc, cfg.WorkerCount)
 

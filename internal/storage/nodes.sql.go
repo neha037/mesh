@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const deleteNode = `-- name: DeleteNode :exec
@@ -63,6 +64,35 @@ func (q *Queries) GetNode(ctx context.Context, id pgtype.UUID) (GetNodeRow, erro
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getNodeContent = `-- name: GetNodeContent :one
+SELECT id, type, title, content, status, version
+FROM nodes WHERE id = $1
+`
+
+type GetNodeContentRow struct {
+	ID      pgtype.UUID `json:"id"`
+	Type    string      `json:"type"`
+	Title   string      `json:"title"`
+	Content pgtype.Text `json:"content"`
+	Status  string      `json:"status"`
+	Version int32       `json:"version"`
+}
+
+// Get node content and metadata for NLP processing.
+func (q *Queries) GetNodeContent(ctx context.Context, id pgtype.UUID) (GetNodeContentRow, error) {
+	row := q.db.QueryRow(ctx, getNodeContent, id)
+	var i GetNodeContentRow
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Title,
+		&i.Content,
+		&i.Status,
+		&i.Version,
 	)
 	return i, err
 }
@@ -195,6 +225,23 @@ type UpdateNodeContentParams struct {
 func (q *Queries) UpdateNodeContent(ctx context.Context, arg UpdateNodeContentParams) error {
 	_, err := q.db.Exec(ctx, updateNodeContent, arg.ID, arg.Content)
 	return err
+}
+
+const updateNodeEmbedding = `-- name: UpdateNodeEmbedding :execresult
+UPDATE nodes
+SET embedding = $2, version = version + 1, updated_at = now()
+WHERE id = $1 AND version = $3
+`
+
+type UpdateNodeEmbeddingParams struct {
+	ID        pgtype.UUID     `json:"id"`
+	Embedding pgvector.Vector `json:"embedding"`
+	Version   int32           `json:"version"`
+}
+
+// Store embedding with optimistic concurrency control.
+func (q *Queries) UpdateNodeEmbedding(ctx context.Context, arg UpdateNodeEmbeddingParams) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, updateNodeEmbedding, arg.ID, arg.Embedding, arg.Version)
 }
 
 const updateNodeStatus = `-- name: UpdateNodeStatus :exec

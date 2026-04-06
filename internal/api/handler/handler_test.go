@@ -59,6 +59,14 @@ func (m *mockNodeRepo) UpdateNodeStatus(_ context.Context, _, _ string) error {
 	return nil
 }
 
+func (m *mockNodeRepo) UpdateNodeEmbedding(_ context.Context, _ string, _ []float32, _ int32) (bool, error) {
+	return true, nil
+}
+
+func (m *mockNodeRepo) GetNodeContent(_ context.Context, _ string) (domain.Node, error) {
+	return domain.Node{}, nil
+}
+
 type mockIngestService struct {
 	ingestURLFn  func(ctx context.Context, url, nodeType string) (domain.IngestURLResult, error)
 	ingestTextFn func(ctx context.Context, title, content, nodeType string) (domain.IngestTextResult, error)

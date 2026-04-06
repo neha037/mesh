@@ -1,5 +1,5 @@
 ---
-name: Debug Issue
+name: debug-issue
 model: sonnet
 description: Systematically debug issues using graph-powered code navigation and 4-phase process
 ---

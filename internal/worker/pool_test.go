@@ -18,6 +18,10 @@ type mockJobRepo struct {
 	retryFn    func(ctx context.Context, id string, backoffSeconds int) error
 }
 
+func (m *mockJobRepo) CreateJob(_ context.Context, _ string, _ any, _ int32) (string, error) {
+	return "new-job", nil
+}
+
 func (m *mockJobRepo) ClaimJob(ctx context.Context) (*domain.Job, error) {
 	return m.claimFn(ctx)
 }

@@ -103,13 +103,13 @@ make lint
 
 ## Project Status
 
-**Current Phase:** Phase 2 — Processing & Intelligence ("The Brain")
+**Current Phase:** Phase 3 — Graph Traversal & Query API ("The Memory")
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | Foundation & Ingestion — "The Senses" | Complete (API, ingestion, scraper, job queue, worker pool, circuit breaker) |
-| 2 | Processing & Intelligence — "The Brain" | Not started |
-| 3 | Graph Traversal & Query API — "The Memory" | Not started |
+| 2 | Processing & Intelligence — "The Brain" | **Complete** (Ollama with circuit breaker, AI tagging, embeddings, semantic similarity, auto edge building, fallback NLP) |
+| 3 | Graph Traversal & Query API — "The Memory" | In progress |
 | 4 | Frontend Visualization — "The Eyes" | Not started |
 | 5 | Multi-Modal & Journaling — "The Human Element" | Not started |
 | 6 | Anti-Echo Chamber Engine — "Discovery" | Not started |

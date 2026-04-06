@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	guuid "github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	pgvector "github.com/pgvector/pgvector-go"
 
 	"github.com/neha037/mesh/internal/domain"
 )
@@ -205,7 +205,42 @@ func (r *NodeRepo) UpdateNodeStatus(ctx context.Context, id, status string) erro
 	return nil
 }
 
-// uuidToString formats a pgtype.UUID as a standard string.
-func uuidToString(u pgtype.UUID) string {
-	return guuid.UUID(u.Bytes).String()
+func (r *NodeRepo) UpdateNodeEmbedding(ctx context.Context, id string, embedding []float32, expectedVersion int32) (bool, error) {
+	uid, err := parseUUID(id)
+	if err != nil {
+		return false, fmt.Errorf("parsing node id: %w", err)
+	}
+	result, err := r.q.UpdateNodeEmbedding(ctx, UpdateNodeEmbeddingParams{
+		ID:        uid,
+		Embedding: pgvector.NewVector(embedding),
+		Version:   expectedVersion,
+	})
+	if err != nil {
+		return false, fmt.Errorf("updating embedding: %w", err)
+	}
+	return result.RowsAffected() > 0, nil
 }
+
+func (r *NodeRepo) GetNodeContent(ctx context.Context, id string) (domain.Node, error) {
+	uid, err := parseUUID(id)
+	if err != nil {
+		return domain.Node{}, fmt.Errorf("parsing node id: %w", err)
+	}
+	row, err := r.q.GetNodeContent(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Node{}, domain.ErrNotFound
+		}
+		return domain.Node{}, fmt.Errorf("getting node content: %w", err)
+	}
+	return domain.Node{
+		ID:      uuidToString(row.ID),
+		Type:    row.Type,
+		Title:   row.Title,
+		Content: row.Content.String,
+		Status:  row.Status,
+		Version: row.Version,
+	}, nil
+}
+
+

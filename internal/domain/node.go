@@ -49,4 +49,34 @@ type NodeRepository interface {
 	DeleteNode(ctx context.Context, id string) error
 	UpdateNodeContent(ctx context.Context, id string, content string) error
 	UpdateNodeStatus(ctx context.Context, id string, status string) error
+	UpdateNodeEmbedding(ctx context.Context, id string, embedding []float32, expectedVersion int32) (bool, error)
+	GetNodeContent(ctx context.Context, id string) (Node, error)
+}
+
+// Tag represents a concept tag extracted from content.
+type Tag struct {
+	ID         string
+	Name       string
+	Confidence float32
+}
+
+// TagRepository defines the interface for tag storage operations.
+type TagRepository interface {
+	UpsertTag(ctx context.Context, name string) (string, error)
+	AssociateNodeTag(ctx context.Context, nodeID, tagID string, confidence float32) error
+	GetNodeTags(ctx context.Context, nodeID string) ([]Tag, error)
+}
+
+// SimilarNode holds a node ID and its similarity score from vector search.
+type SimilarNode struct {
+	ID         string
+	Title      string
+	Similarity float32
+}
+
+// EdgeRepository defines the interface for edge storage operations.
+type EdgeRepository interface {
+	BuildTagSharedEdges(ctx context.Context, nodeID string) error
+	UpsertSemanticEdge(ctx context.Context, sourceID, targetID string, weight float32) error
+	FindSimilarNodes(ctx context.Context, embedding []float32, excludeID string, limit int32) ([]SimilarNode, error)
 }

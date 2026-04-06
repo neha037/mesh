@@ -1,8 +1,7 @@
 ---
-name: Update Docs
+name: update-docs
 model: haiku
 description: Update all living documents after completing implementation work
-user_invocable: true
 ---
 
 ## Living Documents — UPDATE RULES

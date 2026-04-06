@@ -1,5 +1,5 @@
 ---
-name: Refactor Safely
+name: refactor-safely
 model: sonnet
 description: Plan and execute safe refactoring using dependency analysis and structured plans
 ---

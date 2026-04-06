@@ -13,7 +13,7 @@ Mesh is developed in 7 phases over approximately 30 weeks.
 | Phase | Name | Duration | Status |
 |-------|------|----------|--------|
 | 1 | Foundation and Ingestion -- "The Senses" | Weeks 1-3 | **Complete** |
-| 2 | Processing and Intelligence -- "The Brain" | Weeks 4-6 | **In Progress** |
+| 2 | Processing and Intelligence -- "The Brain" | Weeks 4-6 | **Complete** |
 | 3 | Graph Traversal and Query API -- "The Memory" | Weeks 7-9 | Not Started |
 | 4 | Frontend Visualization -- "The Eyes" | Weeks 10-14 | Not Started |
 | 5 | Multi-Modal and Journaling -- "The Human Element" | Weeks 15-18 | Not Started |
@@ -42,10 +42,10 @@ Build the core infrastructure and basic page ingestion.
 
 Automatic content processing with AI.
 
-- Tag extraction using local LLM (Ollama + Gemma 4 E4B, structured JSON output)
-- Embedding generation (EmbeddingGemma-300M, 768 dimensions, Matryoshka)
-- Automatic edge building between related content
-- Fallback NLP when Ollama is unavailable
+- [x] Tag extraction using local LLM (Ollama + Gemma 4 E4B, structured JSON output)
+- [x] Embedding generation (EmbeddingGemma-300M, 768 dimensions, Matryoshka)
+- [x] Automatic edge building between related content
+- [x] Fallback NLP when Ollama is unavailable
 
 ## Phase 3: Graph Traversal and Query API
 

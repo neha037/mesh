@@ -24,11 +24,12 @@ A local-first **Personal Growth Engine** that maps your knowledge into an intera
 | Background job queue and worker pool | Available |
 | Web scraper with circuit breaker | Available |
 | Health check endpoint | Available |
-| AI-powered tag extraction (Ollama) | Coming Soon |
-| Semantic search (pgvector) | Coming Soon |
-| Interactive knowledge graph (Cytoscape.js) | Coming Soon |
-| Spaced repetition (FSRS) | Coming Soon |
-| Discovery engine (anti-echo chamber) | Coming Soon |
+| AI-powered tag extraction (Ollama & Fallback) | Available |
+| Automated semantic relationship building | Available |
+| Vector similarity (pgvector) | Available |
+| Interactive knowledge graph (Cytoscape.js) | Coming Soon (Phase 4) |
+| Spaced repetition (FSRS) | Coming Soon (Phase 7) |
+| Discovery engine (anti-echo chamber) | Coming Soon (Phase 6) |
 
 ---
 
@@ -55,7 +56,7 @@ A local-first **Personal Growth Engine** that maps your knowledge into an intera
                          search, review
 ```
 
-The extension saves pages with a single click. The API stores them in PostgreSQL. Workers (coming soon) will automatically extract tags, generate embeddings, and build connections between your saved knowledge.
+The extension saves pages with a single click. The API stores them in PostgreSQL. Background workers automatically extract tags (via AI), generate embeddings, and build connections between your saved knowledge.
 
 ---
 

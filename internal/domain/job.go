@@ -35,6 +35,7 @@ type IngestTextResult struct {
 
 // JobRepository defines the interface for job storage operations.
 type JobRepository interface {
+	CreateJob(ctx context.Context, jobType string, payload any, maxAttempts int32) (string, error)
 	ClaimJob(ctx context.Context) (*Job, error)
 	CompleteJob(ctx context.Context, id string) error
 	FailJob(ctx context.Context, id string, errMsg string) error

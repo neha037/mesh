@@ -53,16 +53,12 @@ mesh/
 ├── internal/               # Private application code
 │   ├── api/                # HTTP handlers, middleware, router
 │   ├── config/             # Environment-based configuration
-│   ├── domain/             # Core types (Node, Edge, Tag, Job, Review)
-│   ├── graph/              # Graph traversal and cluster analysis
-│   ├── ingest/             # Web scraping, HTML parsing, circuit breaker
-│   ├── nlp/                # Ollama client, fallback NER, prompts
-│   ├── discovery/          # Discovery engine and wildcard injector
-│   ├── fsrs/               # FSRS spaced repetition algorithm
+│   ├── domain/             # Core types and interfaces
+│   ├── nlp/                # NLP service and fallback extractor
+│   ├── ollama/             # Ollama HTTP client (tags, embeddings)
+│   ├── scraper/            # Web scraping and circuit breaker
 │   ├── storage/            # PostgreSQL repositories (pgx + sqlc)
-│   ├── objstore/           # MinIO client wrapper
-│   ├── queue/              # Worker pool and job dispatch
-│   └── cache/              # Cache interface + ristretto implementation
+│   └── worker/             # Worker pool and job processor
 ├── migrations/             # SQL migration files (up/down pairs)
 ├── web/                    # React frontend (Phase 4+)
 ├── deploy/                 # Docker Compose, Dockerfiles, nginx config
@@ -325,6 +321,16 @@ make pull-models
 docker compose --profile ai stop ollama
 ```
 
+### Circuit Breaker Protection
+
+The Ollama client has built-in circuit breaker protection:
+- **Open** after 3 consecutive failures
+- **Half-open** automatically after 60 seconds to retry
+- **Fast-fail**: `Healthy()` returns false immediately when breaker is open (no network call)
+- **Shared** across all Ollama calls (tag extraction, embeddings)
+
+When the circuit breaker is open, the system automatically falls back to `jdkato/prose` NLP without making HTTP requests to Ollama.
+
 The system automatically detects Ollama availability and switches between AI and fallback NLP paths.
 
 ---
@@ -367,7 +373,9 @@ if err != nil {
 |---------|----------|
 | Port 5432 already in use | Stop local PostgreSQL: `sudo systemctl stop postgresql` |
 | Migration fails | Check `DATABASE_URL` is set; verify PostgreSQL is running and healthy |
+| Ollama circuit breaker open (tags/embeddings fail) | Wait 60s for recovery, or restart Ollama: `docker compose --profile ai restart ollama`. Check logs: `docker logs mesh-ollama` |
 | Ollama OOM | Use quantized models (Q4_0); increase Docker memory limit |
+| Tagging/embeddings slow when Ollama down | Circuit breaker opened after 3 failures; worker uses fallback NLP (slower, lower confidence) until Ollama recovers |
 | sqlc errors | Ensure `sqlc.yaml` paths are correct; run `make migrate-up` first |
 | testcontainers fail | Ensure Docker daemon is running; check Docker socket permissions. If Ryuk reaper crashes, `make test-integration` already sets `TESTCONTAINERS_RYUK_DISABLED=true` |
 | Docker group not effective | If user is SSSD/FreeIPA-managed, `newgrp docker` only affects current shell. Use `sg docker -c "<command>"` or log out/in. The systemd service wraps with `sg docker` automatically |

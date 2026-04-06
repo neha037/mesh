@@ -94,22 +94,23 @@
 | 5.8 | Web scraper respects robots.txt, has User-Agent rotation, inter-request delay | 1 | PASS | Colly checks robots.txt by default, 5 UA strings |
 | 5.9 | Circuit breaker on external HTTP calls (open after 5 failures, half-open after 60s) | 1 | PASS | scraper/breaker.go per-domain gobreaker |
 | 5.10 | All external calls wrapped with `context.WithTimeout(30s)` | 1 | PASS | colly SetRequestTimeout(30s) |
-| 5.11 | Tag UPSERT uses `ON CONFLICT (name) DO NOTHING` | 2 | | |
-| 5.12 | Edge UPSERT uses `ON CONFLICT ... DO UPDATE SET weight = GREATEST(...)` | 2 | | |
-| 5.13 | Auto-edge generation: creates edges for nodes sharing 2+ tags | 2 | | |
-| 5.14 | Optimistic concurrency control: `WHERE version = $expected_version` | 2 | | |
+| 5.11 | Tag UPSERT uses `ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name` | 2 | PASS | |
+| 5.12 | Edge UPSERT uses `ON CONFLICT ... DO UPDATE SET weight = GREATEST(...)` | 2 | PASS | |
+| 5.13 | Auto-edge generation: creates edges for nodes sharing 2+ tags | 2 | PASS | |
+| 5.14 | Optimistic concurrency control: `WHERE version = $expected_version` | 2 | PASS | |
+| 5.15 | Circuit breaker on Ollama HTTP client (3-failure threshold, 60s recovery) | 2 | PASS | gobreaker, shared across ExtractTags + GenerateEmbedding |
 
 ## 6. NLP/AI Integration
 
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
-| 6.1 | Ollama HTTP client implemented (generate + embeddings endpoints) | 2 | | |
-| 6.2 | Tag extraction prompt produces JSON array of 3-8 domain-specific concepts | 2 | | |
-| 6.3 | Embedding generation uses `EmbeddingGemma-300M` (768-dim, Matryoshka) | 2 | | |
-| 6.4 | Retry logic with circuit breaker on Ollama calls | 2 | | |
-| 6.5 | Fallback to `jdkato/prose` NER when Ollama unavailable | 2 | | |
-| 6.6 | Embeddings skipped and queued for batch when Ollama down | 2 | | |
-| 6.7 | Ollama configured as optional Docker profile (`profiles: ["ai"]`) | 2 | | |
+| 6.1 | Ollama HTTP client implemented (generate + embeddings endpoints) | 2 | PASS | |
+| 6.2 | Tag extraction prompt produces JSON array of 3-8 domain-specific concepts | 2 | PASS | |
+| 6.3 | Embedding generation uses `EmbeddingGemma-300M` (768-dim, Matryoshka) | 2 | PASS | |
+| 6.4 | Retry logic with circuit breaker on Ollama calls | 2 | PASS | 3-failure threshold, 60s timeout, Healthy() short-circuits when open |
+| 6.5 | Fallback to `jdkato/prose` NER when Ollama unavailable | 2 | PASS | |
+| 6.6 | Embeddings skipped and queued for batch when Ollama down | 2 | PARTIAL | Skipped, not yet re-enqueued for batch |
+| 6.7 | Ollama configured as optional Docker profile (`profiles: ["ai"]`) | 2 | PASS | |
 
 ## 7. Frontend
 
@@ -221,32 +222,32 @@
 - [x] Multi-stage Dockerfile for API
 - [x] Git repo initialized with .gitignore
 - [x] HTTP server with chi router
-- [ ] `POST /api/v1/ingest/url` endpoint
-- [ ] `POST /api/v1/ingest/text` endpoint
+- [x] `POST /api/v1/ingest/url` endpoint
+- [x] `POST /api/v1/ingest/text` endpoint
 - [x] PostgreSQL repository layer (pgx + sqlc)
 - [x] Request logging middleware
 - [x] CORS middleware
-- [ ] Web scraper with colly (timeout, robots.txt, User-Agent rotation)
-- [ ] Circuit breaker (sony/gobreaker)
-- [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)
+- [x] Web scraper with colly (timeout, robots.txt, User-Agent rotation)
+- [x] Circuit breaker (sony/gobreaker)
+- [x] Job queue claim logic (FOR UPDATE SKIP LOCKED)
 - [x] Unit tests for handlers (table-driven)
 - [x] Integration tests with testcontainers-go
-- [ ] End-to-end verification: curl URL → job → scrape → store
+- [x] End-to-end verification: curl URL → job → scrape → store
 
 ### Phase 2: Processing and Intelligence — "The Brain" (Weeks 4-6)
 
-- [ ] Worker pool (configurable goroutines, graceful shutdown, backoff)
-- [ ] HTML stripping pipeline (goquery)
-- [ ] Dockerfile.worker + docker-compose worker service
-- [ ] Ollama container in docker-compose (profile: ai)
-- [ ] Ollama Go client (generate + embeddings)
-- [ ] Tag extraction prompt engineering
-- [ ] Embedding generation (EmbeddingGemma-300M, 768-dim)
-- [ ] Tag UPSERT and node_tags association
-- [ ] Auto-edge generation (2+ shared tags)
-- [ ] Optimistic concurrency control
-- [ ] Fallback NLP (jdkato/prose)
-- [ ] Integration tests for full pipeline
+- [x] Worker pool (configurable goroutines, graceful shutdown, backoff)
+- [x] HTML stripping pipeline (goquery)
+- [x] Dockerfile.worker + docker-compose worker service
+- [x] Ollama container in docker-compose (profile: ai)
+- [x] Ollama Go client (generate + embeddings)
+- [x] Tag extraction prompt engineering
+- [x] Embedding generation (EmbeddingGemma-300M, 768-dim)
+- [x] Tag UPSERT and node_tags association
+- [x] Auto-edge generation (2+ shared tags)
+- [x] Optimistic concurrency control
+- [x] Fallback NLP (jdkato/prose)
+- [x] Integration tests for full pipeline
 
 ### Phase 3: Graph Traversal and Query API — "The Memory" (Weeks 7-9)
 

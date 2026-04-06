@@ -4,9 +4,10 @@ title: API Reference
 nav_order: 5
 ---
 
-# API Reference
-
 The Mesh API runs at `http://localhost:8080`. All endpoints use JSON.
+
+> [!NOTE]
+> **Phase 2 Status:** All ingestion endpoints now trigger an automated background processing pipeline. This includes content scraping, AI-driven tag extraction (or rule-based fallback), vector embedding generation, and automated relationship discovery. No new API endpoints were added in Phase 2; focus was entirely on intelligence and background orchestration.
 
 ---
 
