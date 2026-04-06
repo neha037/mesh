@@ -1,0 +1,18 @@
+# Squawk configuration for Mesh
+# Focus on rules that catch real bugs. Suppress rules that are noise
+# for a local-first single-user app with sequential migrations.
+
+excluded_rules = [
+  # Initial schema creates tables from scratch — IF NOT EXISTS adds no safety
+  "prefer-robust-stmts",
+  # Tables are small and local-only — concurrent index creation is unnecessary
+  "require-concurrent-index-creation",
+  # Single-user app — lock/statement timeouts are not relevant
+  "require-timeout-settings",
+  # Version counters don't need bigint
+  "prefer-bigint-over-int",
+  # We use TEXT type intentionally per project conventions
+  "prefer-text-field",
+  # Local-first app — concurrent index drop is unnecessary
+  "require-concurrent-index-deletion",
+]

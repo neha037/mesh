@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,10 +12,24 @@ import (
 
 const maxContentLen = 500_000 // 500 KB
 
+const invalidTypeMsg = "type must be one of: article, book, hobby, thought, journal, image, wildcard"
+
 var validNodeTypes = map[string]bool{
 	"article": true, "book": true, "hobby": true,
 	"thought": true, "journal": true, "image": true,
 	"wildcard": true,
+}
+
+// validateHTTPURL checks that raw is a valid HTTP or HTTPS URL with a host.
+func validateHTTPURL(raw string) error {
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil {
+		return fmt.Errorf("invalid url format")
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("url must be a valid HTTP/HTTPS URL")
+	}
+	return nil
 }
 
 type ingestRequest struct {
@@ -49,8 +64,8 @@ func (h *Handler) HandleIngestRaw(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorBody("url is required"))
 		return
 	}
-	if _, err := url.ParseRequestURI(req.URL); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorBody("invalid url format"))
+	if err := validateHTTPURL(req.URL); err != nil {
+		writeJSON(w, http.StatusBadRequest, errorBody(err.Error()))
 		return
 	}
 	if req.Title == "" {
@@ -61,16 +76,16 @@ func (h *Handler) HandleIngestRaw(w http.ResponseWriter, r *http.Request) {
 		req.Type = "article"
 	}
 	if !validNodeTypes[req.Type] {
-		writeJSON(w, http.StatusBadRequest, errorBody("type must be one of: article, book, hobby, thought, journal, image, wildcard"))
+		writeJSON(w, http.StatusBadRequest, errorBody(invalidTypeMsg))
 		return
 	}
+	req.Title = htmlPolicy.Sanitize(req.Title)
+	req.Content = htmlPolicy.Sanitize(req.Content)
+
 	if len(req.Content) > maxContentLen {
 		writeJSON(w, http.StatusBadRequest, errorBody("content exceeds 500KB limit"))
 		return
 	}
-
-	req.Title = htmlPolicy.Sanitize(req.Title)
-	req.Content = htmlPolicy.Sanitize(req.Content)
 
 	result, err := h.nodes.UpsertRawNode(r.Context(), req.Type, req.Title, req.Content, req.URL)
 	if err != nil {

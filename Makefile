@@ -6,8 +6,8 @@ DATABASE_URL ?= postgres://mesh:$(PG_PASSWORD)@localhost:5432/mesh?sslmode=disab
 .PHONY: build run-api run-worker test test-integration \
        migrate-up migrate-down \
        docker-up docker-up-ai docker-down docker-logs \
-       lint sqlc pull-models install uninstall \
-       fmt tidy coverage
+       lint lint-sql sqlc pull-models install uninstall \
+       fmt tidy coverage validate-migrations
 
 fmt:
 	gofmt -w .
@@ -58,6 +58,13 @@ docker-logs:
 
 lint:
 	golangci-lint run ./...
+
+lint-sql:
+	@command -v squawk >/dev/null 2>&1 || { echo "Install squawk: npm i -g squawk-cli"; exit 1; }
+	squawk migrations/*.up.sql
+
+validate-migrations: lint-sql test-integration
+	@echo "All migration checks passed"
 
 sqlc:
 	sqlc generate

@@ -1,4 +1,4 @@
-# Mesh
+  # Mesh
 
 A localized, private **Personal Growth Engine** that maps structured technical knowledge and creative pursuits into a unified, interactive knowledge graph — with algorithmic serendipity to combat intellectual stagnation.
 
@@ -103,11 +103,11 @@ make lint
 
 ## Project Status
 
-**Current Phase:** Phase 1 — Foundation & Ingestion ("The Senses")
+**Current Phase:** Phase 2 — Processing & Intelligence ("The Brain")
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Foundation & Ingestion — "The Senses" | In progress (Week 2: API, extension, dedup, pagination) |
+| 1 | Foundation & Ingestion — "The Senses" | Complete (API, ingestion, scraper, job queue, worker pool, circuit breaker) |
 | 2 | Processing & Intelligence — "The Brain" | Not started |
 | 3 | Graph Traversal & Query API — "The Memory" | Not started |
 | 4 | Frontend Visualization — "The Eyes" | Not started |

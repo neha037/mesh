@@ -31,6 +31,8 @@ func NewRouter(h *handler.Handler, allowedOrigins []string) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(maxRequestBody(1 << 20)) // 1 MB default for all API routes
 		r.Post("/ingest/raw", h.HandleIngestRaw)
+		r.Post("/ingest/url", h.HandleIngestURL)
+		r.Post("/ingest/text", h.HandleIngestText)
 		r.Get("/nodes/recent", h.HandleListRecent)
 		r.Get("/nodes", h.HandleListNodes)
 		r.Get("/nodes/{id}", h.HandleGetNode)

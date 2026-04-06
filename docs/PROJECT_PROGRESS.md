@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 6, 2026
+**Last Updated:** April 6, 2026 (evening)
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -17,6 +17,7 @@ This is a living document tracking what has been completed, what's in progress, 
 | April 6, 2026 | AI model upgrade — Adopted Gemma 4 ecosystem: gemma4:e4b (LLM), EmbeddingGemma-300M (embeddings). Updated blueprint, migration (384→768 dim), Makefile, config |
 | April 6, 2026 | Blueprint v1.2 — Added 6 new features: PDF ingestion, voice notes (Gemma 4 ASR), auto de-duplication, knowledge decay visualization, subgraph export, LoRA personalization (future). Fixed stale prompt/library refs. |
 | April 6, 2026 | Code quality review — Fixed 8 lint issues, refactored main.go (exitAfterDefer), added deep health check (DB ping), request ID correlation in error logs, 17 unit tests (handler layer), 7 integration tests (testcontainers-go + pgvector), CI/CD pipeline (GitHub Actions) |
+| April 6, 2026 | Phase 1 Week 3 — Job queue (FOR UPDATE SKIP LOCKED), POST /ingest/url (202 Accepted), POST /ingest/text (201 Created), colly web scraper (UA rotation, robots.txt, HTML cleaning), per-domain circuit breaker (gobreaker, 5-failure threshold), worker pool (configurable goroutines, exponential backoff, graceful shutdown), transactional node+job creation, 15 new unit tests |
 
 ---
 
@@ -101,20 +102,39 @@ mesh/
 │   │   ├── router.go                   # chi router with middleware
 │   │   └── handler/
 │   │       ├── handler.go              # Handler struct with dependencies
-│   │       ├── handler_test.go         # Unit tests (17 table-driven tests)
-│   │       ├── ingest.go              # Ingest handler
-│   │       ├── nodes.go               # List, delete handlers
+│   │       ├── handler_test.go         # Unit tests (shared mocks/helpers)
+│   │       ├── ingest.go              # POST /ingest/raw handler
+│   │       ├── ingest_url.go          # POST /ingest/url handler (202 Accepted)
+│   │       ├── ingest_url_test.go     # Ingest URL tests (8 cases)
+│   │       ├── ingest_text.go         # POST /ingest/text handler (201 Created)
+│   │       ├── ingest_text_test.go    # Ingest text tests (7 cases)
+│   │       ├── nodes.go               # List, get, delete handlers
 │   │       └── response.go            # JSON helpers, health check, logError
 │   ├── storage/
 │   │   ├── db.go                       # Database interface (sqlc generated)
 │   │   ├── models.go                   # Data models (sqlc generated)
 │   │   ├── nodes.sql.go                # Node queries (sqlc generated)
+│   │   ├── jobs.sql.go                 # Job queries (sqlc generated)
 │   │   ├── node_repo.go                # NodeRepo adapter (domain interface)
+│   │   ├── job_repo.go                 # JobRepo adapter (claim, complete, fail, retry)
+│   │   ├── ingest_repo.go             # IngestRepo (transactional node+job creation)
 │   │   ├── node_repo_integration_test.go # Integration tests (testcontainers)
 │   │   ├── postgres.go                 # PostgreSQL connection pool setup
-│   │   └── queries/nodes.sql           # SQL query definitions
+│   │   └── queries/
+│   │       ├── nodes.sql               # Node SQL queries
+│   │       └── jobs.sql                # Job SQL queries (claim, create, complete, fail)
+│   ├── scraper/
+│   │   ├── scraper.go                  # Colly web scraper (UA rotation, HTML cleaning)
+│   │   ├── scraper_test.go             # Scraper tests (httptest, 5 cases)
+│   │   ├── breaker.go                  # Per-domain circuit breaker (gobreaker)
+│   │   └── breaker_test.go             # Circuit breaker tests (4 cases)
+│   ├── worker/
+│   │   ├── pool.go                     # Worker pool (goroutines, backoff, shutdown)
+│   │   ├── pool_test.go                # Pool tests (process, fail/retry, shutdown, 4 cases)
+│   │   └── processor.go               # Job processor (routes process_url, process_text)
 │   └── domain/
-│       ├── node.go                     # Node type, interfaces
+│       ├── node.go                     # Node type, NodeRepository interface
+│       ├── job.go                      # Job type, JobRepository, IngestService interfaces
 │       └── errors.go                   # Domain errors (ErrNotFound)
 ├── migrations/
 │   ├── embed.go                        # Embed migrations for binary
@@ -160,9 +180,7 @@ mesh/
 
 | Category | Items Missing |
 |----------|--------------|
-| **Workers** | No job queue claim logic, no processor (Week 3) |
-| **Ingestion** | No scraper, no circuit breaker (Week 3) |
-| **Tests** | Unit + integration tests exist; more coverage needed for config, router |
+| **Phase 2** | Ollama integration, NLP tagging, embedding generation, auto edge-building |
 | **Frontend** | No React project (Phase 4) |
 
 ---
@@ -188,7 +206,7 @@ mesh/
 
 ### Phase 1: Foundation & Ingestion — "The Senses" — IN PROGRESS
 
-**Progress: 17/21 items**
+**Progress: 21/21 items — COMPLETE**
 
 - [x] Initialize Go module (`github.com/neha037/mesh`)
 - [x] Create project directory structure
@@ -200,22 +218,24 @@ mesh/
 - [x] Create `Dockerfile.api` (multi-stage build)
 - [x] Create `.env.example`
 - [x] Implement HTTP server with chi router
-- [ ] `POST /api/v1/ingest/url` endpoint
+- [x] `POST /api/v1/ingest/url` endpoint (202 Accepted, enqueues process_url job)
 - [x] `POST /api/v1/ingest/raw` endpoint (URL + title + content)
 - [x] `GET /api/v1/nodes/recent` endpoint
 - [x] `GET /api/v1/nodes` endpoint (paginated)
 - [x] `DELETE /api/v1/nodes/{id}` endpoint
-- [ ] `POST /api/v1/ingest/text` endpoint
+- [x] `POST /api/v1/ingest/text` endpoint (201 Created, enqueues process_text job)
 - [x] PostgreSQL repository layer (pgx + sqlc)
 - [x] Request logging middleware
 - [x] CORS middleware
 - [x] URL deduplication (upsert on conflict)
 - [x] Keyset (cursor) pagination for scalability
 - [x] Connection pool configuration (MinConns=5, MaxConns=25)
-- [ ] Web scraper (colly, timeouts, robots.txt)
-- [ ] Circuit breaker (sony/gobreaker)
-- [ ] Job queue claim logic (FOR UPDATE SKIP LOCKED)
-- [x] Unit tests for handlers (table-driven, 17 tests)
+- [x] Web scraper (colly, 30s timeout, UA rotation, robots.txt, HTML cleaning)
+- [x] Circuit breaker (sony/gobreaker, per-domain, 5-failure threshold, 60s recovery)
+- [x] Job queue claim logic (FOR UPDATE SKIP LOCKED, exponential backoff)
+- [x] Worker pool (configurable goroutines, graceful shutdown)
+- [x] Transactional node+job creation (IngestRepo)
+- [x] Unit tests for handlers (table-driven, 46 tests)
 - [x] Integration tests with testcontainers-go (7 tests, pgvector/pgvector:pg16)
 
 ### Phases 2-7 — NOT STARTED
@@ -226,13 +246,13 @@ See [Review Checklist](REVIEW_CHECKLIST.md) for detailed per-phase checklists.
 
 ## What's Next
 
-Tests and CI are now in place. Next is **Week 3 — Resilience**:
+Phase 1 is complete. Next is **Phase 2 — Processing & Intelligence ("The Brain")**:
 
-1. **Web scraper** using `colly` with `context.WithTimeout` (30s), User-Agent rotation, robots.txt respect
-2. **`POST /api/v1/ingest/url`** — validate URL, create node, enqueue `process_url` job, return `202 Accepted`
-3. **`POST /api/v1/ingest/text`** — validate title/content, create node, enqueue `process_text` job, return `201 Created`
-4. **Circuit breaker** (`sony/gobreaker`) — open after 5 failures, half-open after 60s
-5. **Job queue claim logic** — `SELECT ... FOR UPDATE SKIP LOCKED`
+1. **Ollama client** — connect to local Ollama for NLP tasks
+2. **Tag extraction** — use Gemma 4 to extract concepts from node content
+3. **Embedding generation** — use EmbeddingGemma-300M for 768-dim vectors
+4. **Auto edge-building** — create tag_shared and semantic edges between related nodes
+5. **Worker job types** — implement generate_embedding, build_edges job processors
 
 ---
 

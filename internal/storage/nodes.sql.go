@@ -167,6 +167,38 @@ func (q *Queries) ListRecentNodes(ctx context.Context, limit int32) ([]ListRecen
 	return items, nil
 }
 
+const updateNodeContent = `-- name: UpdateNodeContent :exec
+UPDATE nodes
+SET content = $2, status = 'processed', updated_at = now()
+WHERE id = $1
+`
+
+type UpdateNodeContentParams struct {
+	ID      pgtype.UUID `json:"id"`
+	Content pgtype.Text `json:"content"`
+}
+
+func (q *Queries) UpdateNodeContent(ctx context.Context, arg UpdateNodeContentParams) error {
+	_, err := q.db.Exec(ctx, updateNodeContent, arg.ID, arg.Content)
+	return err
+}
+
+const updateNodeStatus = `-- name: UpdateNodeStatus :exec
+UPDATE nodes
+SET status = $2, updated_at = now()
+WHERE id = $1
+`
+
+type UpdateNodeStatusParams struct {
+	ID     pgtype.UUID `json:"id"`
+	Status string      `json:"status"`
+}
+
+func (q *Queries) UpdateNodeStatus(ctx context.Context, arg UpdateNodeStatusParams) error {
+	_, err := q.db.Exec(ctx, updateNodeStatus, arg.ID, arg.Status)
+	return err
+}
+
 const upsertRawNode = `-- name: UpsertRawNode :one
 INSERT INTO nodes (type, title, content, source_url)
 VALUES ($1, $2, $3, $4)

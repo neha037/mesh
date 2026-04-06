@@ -47,4 +47,6 @@ type NodeRepository interface {
 	ListRecentNodes(ctx context.Context, limit int32) ([]Node, error)
 	ListNodes(ctx context.Context, params ListNodesParams) (ListNodesResult, error)
 	DeleteNode(ctx context.Context, id string) error
+	UpdateNodeContent(ctx context.Context, id string, content string) error
+	UpdateNodeStatus(ctx context.Context, id string, status string) error
 }

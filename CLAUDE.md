@@ -34,6 +34,18 @@ After completing any implementation work in a session, update the following docu
    - Update Docker Compose, Dockerfile, or Makefile sections (Section 9) if they changed
    - Update the header Version and Status if a milestone was reached
 
+6. **`docs/api-reference.md`**
+   - Update when API endpoints are added, changed, or removed
+   - Keep request/response examples accurate with current field names and types
+
+7. **`docs/index.md`**
+   - Update the Feature Status table when features ship (change "Coming Soon" to "Available")
+   - Add new features to the table as they are implemented
+
+8. **`docs/roadmap.md`**
+   - Update phase status when a phase is completed or started
+   - Check off completed items in the phase checklists
+
 ## Code Conventions
 
 - Go: wrap errors with context, use context.Context as first param, no panics in library code
@@ -41,6 +53,20 @@ After completing any implementation work in a session, update the following docu
 - Testing: table-driven tests, integration tests with testcontainers-go, always run with -race
 - Docker: all ports bind to 127.0.0.1, health checks on infrastructure services
 - Config: all settings via environment variables, never hardcode credentials
+
+## Database Migration Rules
+
+When writing PostgreSQL migrations (`migrations/*.sql`):
+
+- Index predicates (WHERE clauses) must use only IMMUTABLE functions — `now()`,
+  `current_timestamp`, `current_date`, and `clock_timestamp()` are NOT immutable
+  and will cause `CREATE INDEX` to fail. Use column comparisons instead.
+- Do not use `now()` or any non-immutable function in CHECK constraints,
+  generated columns, or index predicates. They are only safe in DEFAULT clauses.
+- Always provide a matching down migration that reverses the up migration exactly.
+- Adding NOT NULL columns: always include a DEFAULT value.
+- Run `make lint-sql` before committing any new migration to catch anti-patterns.
+- Run `make test-integration` to verify the round-trip (up/down/up) passes.
 
 ## Test-Driven Development
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,33 @@ func (m *mockNodeRepo) DeleteNode(ctx context.Context, id string) error {
 	return m.deleteFn(ctx, id)
 }
 
+func (m *mockNodeRepo) UpdateNodeContent(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (m *mockNodeRepo) UpdateNodeStatus(_ context.Context, _, _ string) error {
+	return nil
+}
+
+type mockIngestService struct {
+	ingestURLFn  func(ctx context.Context, url, nodeType string) (domain.IngestURLResult, error)
+	ingestTextFn func(ctx context.Context, title, content, nodeType string) (domain.IngestTextResult, error)
+}
+
+func (m *mockIngestService) IngestURL(ctx context.Context, url, nodeType string) (domain.IngestURLResult, error) {
+	if m.ingestURLFn != nil {
+		return m.ingestURLFn(ctx, url, nodeType)
+	}
+	return domain.IngestURLResult{}, errors.New("not implemented")
+}
+
+func (m *mockIngestService) IngestText(ctx context.Context, title, content, nodeType string) (domain.IngestTextResult, error) {
+	if m.ingestTextFn != nil {
+		return m.ingestTextFn(ctx, title, content, nodeType)
+	}
+	return domain.IngestTextResult{}, errors.New("not implemented")
+}
+
 type mockPinger struct {
 	err error
 }
@@ -66,7 +94,17 @@ func newTestHandler(repo *mockNodeRepo, pinger *mockPinger) *handler.Handler {
 	if pinger == nil {
 		pinger = &mockPinger{}
 	}
-	return handler.New(repo, pinger)
+	return handler.New(repo, &mockIngestService{}, pinger)
+}
+
+func newTestHandlerWithIngest(repo *mockNodeRepo, ingest *mockIngestService, pinger *mockPinger) *handler.Handler {
+	if pinger == nil {
+		pinger = &mockPinger{}
+	}
+	if ingest == nil {
+		ingest = &mockIngestService{}
+	}
+	return handler.New(repo, ingest, pinger)
 }
 
 func decodeBody(t *testing.T, resp *httptest.ResponseRecorder, v any) {
@@ -172,6 +210,20 @@ func TestHandleIngestRaw(t *testing.T) {
 			wantError:  "invalid url format",
 		},
 		{
+			name:       "rejects ftp url scheme",
+			body:       `{"url":"ftp://example.com","title":"Test"}`,
+			repo:       successRepo,
+			wantStatus: http.StatusBadRequest,
+			wantError:  "url must be a valid HTTP/HTTPS URL",
+		},
+		{
+			name:       "rejects javascript url scheme",
+			body:       `{"url":"javascript:alert(1)","title":"Test"}`,
+			repo:       successRepo,
+			wantStatus: http.StatusBadRequest,
+			wantError:  "url must be a valid HTTP/HTTPS URL",
+		},
+		{
 			name:       "missing title",
 			body:       `{"url":"https://example.com"}`,
 			repo:       successRepo,
@@ -203,6 +255,27 @@ func TestHandleIngestRaw(t *testing.T) {
 			wantError:  "internal server error",
 		},
 	}
+
+	// Test content exceeding 500KB limit (not table-driven due to large body).
+	t.Run("content exceeds 500KB limit", func(t *testing.T) {
+		largeContent := strings.Repeat("a", 500_001)
+		body := `{"url":"https://example.com","title":"Test","content":"` + largeContent + `"}`
+		h := newTestHandler(successRepo, nil)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/ingest/raw", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.HandleIngestRaw(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+		}
+		var errBody map[string]string
+		decodeBody(t, rec, &errBody)
+		if errBody["error"] != "content exceeds 500KB limit" {
+			t.Errorf("error = %q, want %q", errBody["error"], "content exceeds 500KB limit")
+		}
+	})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

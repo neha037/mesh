@@ -12,8 +12,8 @@ Mesh is developed in 7 phases over approximately 30 weeks.
 
 | Phase | Name | Duration | Status |
 |-------|------|----------|--------|
-| 1 | Foundation and Ingestion -- "The Senses" | Weeks 1-3 | **In Progress** |
-| 2 | Processing and Intelligence -- "The Brain" | Weeks 4-6 | Not Started |
+| 1 | Foundation and Ingestion -- "The Senses" | Weeks 1-3 | **Complete** |
+| 2 | Processing and Intelligence -- "The Brain" | Weeks 4-6 | **In Progress** |
 | 3 | Graph Traversal and Query API -- "The Memory" | Weeks 7-9 | Not Started |
 | 4 | Frontend Visualization -- "The Eyes" | Weeks 10-14 | Not Started |
 | 5 | Multi-Modal and Journaling -- "The Human Element" | Weeks 15-18 | Not Started |
@@ -35,8 +35,8 @@ Build the core infrastructure and basic page ingestion.
 - [x] Cursor-based pagination
 - [x] System tray with service controls
 - [x] Systemd integration with autostart
-- [ ] Web scraper with circuit breaker
-- [ ] Background job queue
+- [x] Web scraper with circuit breaker
+- [x] Background job queue
 
 ## Phase 2: Processing and Intelligence
 

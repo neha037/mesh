@@ -21,7 +21,9 @@ A local-first **Personal Growth Engine** that maps your knowledge into an intera
 | Autostart on login (systemd) | Available |
 | REST API for ingestion and retrieval | Available |
 | Cursor-based pagination (scalable) | Available |
-| Background workers (scraping, NLP) | Coming Soon |
+| Background job queue and worker pool | Available |
+| Web scraper with circuit breaker | Available |
+| Health check endpoint | Available |
 | AI-powered tag extraction (Ollama) | Coming Soon |
 | Semantic search (pgvector) | Coming Soon |
 | Interactive knowledge graph (Cytoscape.js) | Coming Soon |

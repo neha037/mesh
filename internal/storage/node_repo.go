@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
+	guuid "github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -56,19 +56,19 @@ func (r *NodeRepo) ListRecentNodes(ctx context.Context, limit int32) ([]domain.N
 	}
 
 	nodes := make([]domain.Node, len(rows))
-	for i, row := range rows {
+	for i := range rows {
 		nodes[i] = domain.Node{
-			ID:        uuidToString(row.ID),
-			Type:      row.Type,
-			Title:     row.Title,
-			Content:   row.Content.String,
-			Summary:   row.Summary.String,
-			SourceURL: row.SourceUrl.String,
-			ImageKey:  row.ImageKey.String,
-			Status:    row.Status,
-			Version:   row.Version,
-			CreatedAt: row.CreatedAt.Time,
-			UpdatedAt: row.UpdatedAt.Time,
+			ID:        uuidToString(rows[i].ID),
+			Type:      rows[i].Type,
+			Title:     rows[i].Title,
+			Content:   rows[i].Content.String,
+			Summary:   rows[i].Summary.String,
+			SourceURL: rows[i].SourceUrl.String,
+			ImageKey:  rows[i].ImageKey.String,
+			Status:    rows[i].Status,
+			Version:   rows[i].Version,
+			CreatedAt: rows[i].CreatedAt.Time,
+			UpdatedAt: rows[i].UpdatedAt.Time,
 		}
 	}
 	return nodes, nil
@@ -80,15 +80,18 @@ func (r *NodeRepo) ListNodes(ctx context.Context, params domain.ListNodesParams)
 	dbParams := ListNodesParams{
 		Limit: params.Limit + 1,
 	}
+	if (params.CursorAt == nil) != (params.CursorID == nil) {
+		return domain.ListNodesResult{}, fmt.Errorf("cursor_at and cursor_id must both be set or both be nil")
+	}
 	if params.CursorAt != nil {
 		dbParams.CursorTime = pgtype.Timestamptz{Time: *params.CursorAt, Valid: true}
 	}
 	if params.CursorID != nil {
-		var uuid pgtype.UUID
-		if err := uuid.Scan(*params.CursorID); err != nil {
+		cursorUUID, err := parseUUID(*params.CursorID)
+		if err != nil {
 			return domain.ListNodesResult{}, fmt.Errorf("invalid cursor ID: %w", err)
 		}
-		dbParams.CursorID = uuid
+		dbParams.CursorID = cursorUUID
 	}
 
 	rows, err := r.q.ListNodes(ctx, dbParams)
@@ -102,19 +105,19 @@ func (r *NodeRepo) ListNodes(ctx context.Context, params domain.ListNodesParams)
 	}
 
 	nodes := make([]domain.Node, len(rows))
-	for i, row := range rows {
+	for i := range rows {
 		nodes[i] = domain.Node{
-			ID:        uuidToString(row.ID),
-			Type:      row.Type,
-			Title:     row.Title,
-			Content:   row.Content.String,
-			Summary:   row.Summary.String,
-			SourceURL: row.SourceUrl.String,
-			ImageKey:  row.ImageKey.String,
-			Status:    row.Status,
-			Version:   row.Version,
-			CreatedAt: row.CreatedAt.Time,
-			UpdatedAt: row.UpdatedAt.Time,
+			ID:        uuidToString(rows[i].ID),
+			Type:      rows[i].Type,
+			Title:     rows[i].Title,
+			Content:   rows[i].Content.String,
+			Summary:   rows[i].Summary.String,
+			SourceURL: rows[i].SourceUrl.String,
+			ImageKey:  rows[i].ImageKey.String,
+			Status:    rows[i].Status,
+			Version:   rows[i].Version,
+			CreatedAt: rows[i].CreatedAt.Time,
+			UpdatedAt: rows[i].UpdatedAt.Time,
 		}
 	}
 
@@ -127,12 +130,12 @@ func (r *NodeRepo) ListNodes(ctx context.Context, params domain.ListNodesParams)
 // DeleteNode removes a node by ID. Returns domain.ErrNotFound if the node
 // does not exist.
 func (r *NodeRepo) DeleteNode(ctx context.Context, id string) error {
-	var uuid pgtype.UUID
-	if err := uuid.Scan(id); err != nil {
-		return fmt.Errorf("invalid node ID %q: %w", id, err)
+	uid, err := parseUUID(id)
+	if err != nil {
+		return err
 	}
 
-	tag, err := r.q.DeleteNodeReturningTag(ctx, uuid)
+	tag, err := r.q.DeleteNodeReturningTag(ctx, uid)
 	if err != nil {
 		return fmt.Errorf("deleting node: %w", err)
 	}
@@ -144,12 +147,12 @@ func (r *NodeRepo) DeleteNode(ctx context.Context, id string) error {
 
 // GetNode retrieves a node by its ID.
 func (r *NodeRepo) GetNode(ctx context.Context, id string) (domain.Node, error) {
-	var uuid pgtype.UUID
-	if err := uuid.Scan(id); err != nil {
-		return domain.Node{}, fmt.Errorf("invalid node ID %q: %w", id, err)
+	uid, err := parseUUID(id)
+	if err != nil {
+		return domain.Node{}, err
 	}
 
-	row, err := r.q.GetNode(ctx, uuid)
+	row, err := r.q.GetNode(ctx, uid)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Node{}, domain.ErrNotFound
 	}
@@ -172,7 +175,37 @@ func (r *NodeRepo) GetNode(ctx context.Context, id string) (domain.Node, error) 
 	}, nil
 }
 
+// UpdateNodeContent updates a node's content and sets status to processed.
+func (r *NodeRepo) UpdateNodeContent(ctx context.Context, id, content string) error {
+	uid, err := parseUUID(id)
+	if err != nil {
+		return err
+	}
+	if err := r.q.UpdateNodeContent(ctx, UpdateNodeContentParams{
+		ID:      uid,
+		Content: pgtype.Text{String: content, Valid: content != ""},
+	}); err != nil {
+		return fmt.Errorf("updating node content: %w", err)
+	}
+	return nil
+}
+
+// UpdateNodeStatus updates a node's status.
+func (r *NodeRepo) UpdateNodeStatus(ctx context.Context, id, status string) error {
+	uid, err := parseUUID(id)
+	if err != nil {
+		return err
+	}
+	if err := r.q.UpdateNodeStatus(ctx, UpdateNodeStatusParams{
+		ID:     uid,
+		Status: status,
+	}); err != nil {
+		return fmt.Errorf("updating node status: %w", err)
+	}
+	return nil
+}
+
 // uuidToString formats a pgtype.UUID as a standard string.
 func uuidToString(u pgtype.UUID) string {
-	return uuid.UUID(u.Bytes).String()
+	return guuid.UUID(u.Bytes).String()
 }

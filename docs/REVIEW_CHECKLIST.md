@@ -37,8 +37,8 @@
 
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
-| 3.1 | `POST /api/v1/ingest/url` — validates URL, creates node, enqueues job, returns 202 | 1 | | |
-| 3.2 | `POST /api/v1/ingest/text` — validates fields, creates node, returns 201 | 1 | | |
+| 3.1 | `POST /api/v1/ingest/url` — validates URL, creates node, enqueues job, returns 202 | 1 | PASS | Transactional node+job via IngestRepo |
+| 3.2 | `POST /api/v1/ingest/text` — validates fields, creates node, returns 201 | 1 | PASS | Validates title required, enqueues process_text job |
 | 3.3 | `GET /api/v1/graph` — full graph with pagination | 3 | | |
 | 3.4 | `GET /api/v1/graph?center=<uuid>&depth=<int>` — BFS subgraph | 3 | | |
 | 3.5 | `GET /api/v1/nodes` — list with pagination, type/tag/date filters | 3 | | |
@@ -84,16 +84,16 @@
 
 | # | Criterion | Phase | Status | Notes |
 |---|-----------|-------|--------|-------|
-| 5.1 | Worker pool with configurable goroutine count | 2 | | |
-| 5.2 | Job claim via `SELECT ... FOR UPDATE SKIP LOCKED` | 1 | | |
-| 5.3 | Exponential backoff when no jobs available (1s → 30s cap) | 2 | | |
-| 5.4 | Graceful shutdown: workers finish current job before exiting | 2 | | |
-| 5.5 | Job retry with max_attempts (default 3) | 1 | | |
-| 5.6 | Dead-letter: failed jobs set to `status='dead'` after max retries | 1 | | |
-| 5.7 | HTML stripping pipeline: fetch → parse → strip scripts/styles → clean text | 2 | | |
-| 5.8 | Web scraper respects robots.txt, has User-Agent rotation, inter-request delay | 1 | | |
-| 5.9 | Circuit breaker on external HTTP calls (open after 5 failures, half-open after 60s) | 1 | | |
-| 5.10 | All external calls wrapped with `context.WithTimeout(30s)` | 1 | | |
+| 5.1 | Worker pool with configurable goroutine count | 2 | PASS | worker.NewPool(jobs, proc, count) |
+| 5.2 | Job claim via `SELECT ... FOR UPDATE SKIP LOCKED` | 1 | PASS | jobs.sql ClaimJob query |
+| 5.3 | Exponential backoff when no jobs available (1s → 30s cap) | 2 | PASS | pool.go loop backoff logic |
+| 5.4 | Graceful shutdown: workers finish current job before exiting | 2 | PASS | context cancellation + WaitGroup |
+| 5.5 | Job retry with max_attempts (default 3) | 1 | PASS | RetryJob if attempts < maxAttempts |
+| 5.6 | Dead-letter: failed jobs set to `status='dead'` after max retries | 1 | PASS | FailJob at max attempts |
+| 5.7 | HTML stripping pipeline: fetch → parse → strip scripts/styles → clean text | 2 | PASS | scraper.go strips script/style/nav/footer/header |
+| 5.8 | Web scraper respects robots.txt, has User-Agent rotation, inter-request delay | 1 | PASS | Colly checks robots.txt by default, 5 UA strings |
+| 5.9 | Circuit breaker on external HTTP calls (open after 5 failures, half-open after 60s) | 1 | PASS | scraper/breaker.go per-domain gobreaker |
+| 5.10 | All external calls wrapped with `context.WithTimeout(30s)` | 1 | PASS | colly SetRequestTimeout(30s) |
 | 5.11 | Tag UPSERT uses `ON CONFLICT (name) DO NOTHING` | 2 | | |
 | 5.12 | Edge UPSERT uses `ON CONFLICT ... DO UPDATE SET weight = GREATEST(...)` | 2 | | |
 | 5.13 | Auto-edge generation: creates edges for nodes sharing 2+ tags | 2 | | |

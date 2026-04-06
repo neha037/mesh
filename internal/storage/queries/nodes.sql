@@ -30,3 +30,13 @@ DELETE FROM nodes WHERE id = $1;
 
 -- name: DeleteNodeReturningTag :execresult
 DELETE FROM nodes WHERE id = $1;
+
+-- name: UpdateNodeContent :exec
+UPDATE nodes
+SET content = $2, status = 'processed', updated_at = now()
+WHERE id = $1;
+
+-- name: UpdateNodeStatus :exec
+UPDATE nodes
+SET status = $2, updated_at = now()
+WHERE id = $1;

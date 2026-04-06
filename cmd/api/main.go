@@ -54,7 +54,8 @@ func run() error {
 
 	queries := storage.New(pool)
 	nodeRepo := storage.NewNodeRepo(queries)
-	h := handler.New(nodeRepo, pool)
+	ingestRepo := storage.NewIngestRepo(pool)
+	h := handler.New(nodeRepo, ingestRepo, pool)
 	router := api.NewRouter(h, cfg.AllowedOrigins)
 
 	srv := &http.Server{

@@ -17,6 +17,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ─── MinIO Object Storage ──────────────────────────────
   minio:
@@ -80,6 +81,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:

@@ -1,0 +1,34 @@
+# AI & LLM Ignore Patterns
+# -------------------------
+# These patterns tell AI coding agents to ignore these files/directories
+# during repository indexing and context gathering to save tokens.
+
+# Binaries and build artifacts
+bin/
+/api
+/worker
+*.exe
+*.test
+*.coverprofile
+coverage.out
+
+# Dependencies
+node_modules/
+vendor/
+
+# Hidden/Local files
+.env
+.idea/
+.vscode/
+
+# Large logs or datasets
+*.log
+data/
+tmp/
+
+# Documentation source/build
+docs/_site/
+.jekyll-cache/
+
+# Git internals
+.git/
