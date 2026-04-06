@@ -1,13 +1,14 @@
 ---
 name: Refactor Safely
-description: Plan and execute safe refactoring using dependency analysis
+model: sonnet
+description: Plan and execute safe refactoring using dependency analysis and structured plans
 ---
 
 ## Refactor Safely
 
 Use the knowledge graph to plan and execute refactoring with confidence.
 
-### Steps
+### Graph-Powered Refactoring
 
 1. Use `refactor_tool` with mode="suggest" for community-driven refactoring suggestions.
 2. Use `refactor_tool` with mode="dead_code" to find unreferenced code.
@@ -21,3 +22,16 @@ Use the knowledge graph to plan and execute refactoring with confidence.
 - Check `get_impact_radius` before major refactors.
 - Use `get_affected_flows` to ensure no critical paths are broken.
 - Run `find_large_functions` to identify decomposition targets.
+
+### Implementation Plans
+
+When creating plans for multi-step work:
+
+- Every task should be completable in 2-5 minutes
+- Include exact file paths and complete code — no "add appropriate validation" or "TBD"
+- Each task follows the TDD cycle: write test → verify failure → implement → verify pass → commit
+- Self-review checklist before execution:
+  1. Map each requirement to at least one task
+  2. Scan for placeholder language and remove it
+  3. Verify type/function names are consistent across tasks
+  4. Confirm every instruction is exact and actionable

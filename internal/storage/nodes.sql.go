@@ -30,12 +30,27 @@ func (q *Queries) DeleteNodeReturningTag(ctx context.Context, id pgtype.UUID) (p
 }
 
 const getNode = `-- name: GetNode :one
-SELECT id, type, title, content, summary, source_url, image_key, embedding, version, created_at, updated_at, status FROM nodes WHERE id = $1
+SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
+FROM nodes WHERE id = $1
 `
 
-func (q *Queries) GetNode(ctx context.Context, id pgtype.UUID) (Node, error) {
+type GetNodeRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Type      string             `json:"type"`
+	Title     string             `json:"title"`
+	Content   pgtype.Text        `json:"content"`
+	Summary   pgtype.Text        `json:"summary"`
+	SourceUrl pgtype.Text        `json:"source_url"`
+	ImageKey  pgtype.Text        `json:"image_key"`
+	Status    string             `json:"status"`
+	Version   int32              `json:"version"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetNode(ctx context.Context, id pgtype.UUID) (GetNodeRow, error) {
 	row := q.db.QueryRow(ctx, getNode, id)
-	var i Node
+	var i GetNodeRow
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
@@ -44,11 +59,10 @@ func (q *Queries) GetNode(ctx context.Context, id pgtype.UUID) (Node, error) {
 		&i.Summary,
 		&i.SourceUrl,
 		&i.ImageKey,
-		&i.Embedding,
+		&i.Status,
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Status,
 	)
 	return i, err
 }

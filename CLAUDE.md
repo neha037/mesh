@@ -4,47 +4,9 @@ Local-first Personal Growth Engine. Go backend, React frontend, PostgreSQL+pgvec
 
 See `docs/PROJECT_MESH_BLUEPRINT.md` for the full architectural blueprint.
 
-## Living Documents — UPDATE RULES
+## Living Documents
 
-After completing any implementation work in a session, update the following documents before finishing:
-
-1. **`docs/PROJECT_PROGRESS.md`**
-   - Add entry to the Project Timeline table with today's date and milestone
-   - Check off completed items in the Phase Progress section
-   - Update the "Current State" file inventory if new files/directories were created
-   - Update the "Overall Status" if the phase changed
-
-2. **`README.md`**
-   - Update the Phase Status table if any phase status changed
-   - Update Quick Start instructions if setup steps changed
-   - Update the "Current Phase" line
-
-3. **`docs/DEVELOPERS_GUIDE.md`**
-   - Update if new conventions, tools, env vars, or Makefile targets were added
-   - Update the Repository Structure section if directory layout changed
-   - Add new troubleshooting entries for issues encountered
-
-4. **`docs/REVIEW_CHECKLIST.md`**
-   - Mark criteria as PASS/PARTIAL after verifying them
-   - Check off completed items in the Phase Completion Tracker
-
-5. **`docs/PROJECT_MESH_BLUEPRINT.md`**
-   - Check off completed items in the Phase roadmap (Section 6)
-   - Update the Project Structure (Section 8) if new files/directories were created
-   - Update Docker Compose, Dockerfile, or Makefile sections (Section 9) if they changed
-   - Update the header Version and Status if a milestone was reached
-
-6. **`docs/api-reference.md`**
-   - Update when API endpoints are added, changed, or removed
-   - Keep request/response examples accurate with current field names and types
-
-7. **`docs/index.md`**
-   - Update the Feature Status table when features ship (change "Coming Soon" to "Available")
-   - Add new features to the table as they are implemented
-
-8. **`docs/roadmap.md`**
-   - Update phase status when a phase is completed or started
-   - Check off completed items in the phase checklists
+After completing implementation work, run `/update-docs` to update all living documents.
 
 ## Code Conventions
 
@@ -90,34 +52,9 @@ Anti-patterns to avoid:
 - Mock setup exceeding test logic in length — use integration tests instead
 - Partial mock structures that don't mirror real API responses
 
-## Systematic Debugging
+## Debugging
 
-When investigating bugs, follow this 4-phase process. NO fixes before root cause is found.
-
-**Phase 1 — Investigate:**
-- Read complete error messages and stack traces
-- Reproduce the issue reliably with documented steps
-- Check `git log` for recent changes that could be related
-- Trace data flow backward from the symptom to the source
-
-**Phase 2 — Analyze:**
-- Compare broken code against working code (similar endpoints, prior versions)
-- List every difference; document all assumptions
-
-**Phase 3 — Hypothesize and Test:**
-- State theory explicitly: "X causes this because Y"
-- Test with one isolated change at a time
-- If 3 separate fix attempts fail, stop — question the architecture, not the symptoms
-
-**Phase 4 — Fix:**
-- Write a failing test that reproduces the bug
-- Implement the root-cause fix (not a symptom patch)
-- Verify the test passes and no other tests break
-
-Stop signals — return to Phase 1 if you catch yourself:
-- Proposing fixes before understanding the issue
-- Making multiple changes at once
-- Planning a "quick fix now, investigate later"
+For systematic debugging, use `/debug-issue`. No fixes before root cause is found.
 
 ## Verification Before Completion
 
@@ -132,28 +69,12 @@ Before claiming any task is done, follow this gate:
 Never use "should work", "probably fine", or "seems correct". Show the output.
 Never commit or push without fresh test evidence.
 
-## Implementation Plans
-
-When creating plans for multi-step work:
-
-- Every task should be completable in 2-5 minutes
-- Include exact file paths and complete code — no "add appropriate validation" or "TBD"
-- Each task follows the TDD cycle: write test → verify failure → implement → verify pass → commit
-- Self-review checklist before execution:
-  1. Map each requirement to at least one task
-  2. Scan for placeholder language and remove it
-  3. Verify type/function names are consistent across tasks
-  4. Confirm every instruction is exact and actionable
-
 ## Subagent Usage
 
-For parallelizable work (e.g., implementing independent endpoints, writing tests for separate packages):
-
-- Dispatch one agent per independent task with full context (file paths, specs, constraints)
+- Dispatch one agent per independent task with full context
+- Model selection: exploration/search → haiku, coding/testing → sonnet, architecture → opus
 - Each agent follows TDD and commits its own work
-- After each agent completes, review for: spec compliance, then code quality
 - Never dispatch agents for interdependent tasks — run those sequentially
-- Use the cheapest capable model: simple file changes → haiku, integration work → sonnet, architecture → opus
 
 ## Before Starting Work
 
@@ -199,3 +120,12 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+## Compact Instructions
+
+When compacting, preserve:
+- Code changes made and their file paths
+- Test results (pass/fail counts, specific failures)
+- Architectural decisions and their rationale
+- Current task progress and next steps
+Discard: file exploration results, full file contents, verbose command output.

@@ -1,5 +1,6 @@
 ---
 name: Explore Codebase
+model: haiku
 description: Navigate and understand codebase structure using the knowledge graph
 ---
 

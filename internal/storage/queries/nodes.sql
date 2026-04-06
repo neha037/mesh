@@ -23,7 +23,8 @@ ORDER BY created_at DESC, id DESC
 LIMIT $1;
 
 -- name: GetNode :one
-SELECT * FROM nodes WHERE id = $1;
+SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
+FROM nodes WHERE id = $1;
 
 -- name: DeleteNode :exec
 DELETE FROM nodes WHERE id = $1;
