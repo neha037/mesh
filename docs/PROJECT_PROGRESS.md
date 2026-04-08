@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 8, 2026
+**Last Updated:** April 8, 2026 (Phase 2 committed)
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -21,6 +21,7 @@ This is a living document tracking what has been completed, what's in progress, 
 | April 7, 2026 | Phase 2 — Ollama client, tag extraction (LLM + fallback NLP), embedding generation, auto edge-building (tag_shared + semantic), worker pipeline enhancement, 25+ new tests |
 | April 7, 2026 | Phase 2 enhancements — Ollama client circuit breaker (3-failure threshold, 60s recovery), fallback NLP when Ollama unavailable, 3 additional tests, full suite passes with -race |
 | April 8, 2026 | Phase 2 verification complete — Confirmed robots.txt support, scrapers respect robots.txt with circuit breaker protection, 36 tests passing with -race, ready for Phase 3 kickoff |
+| April 8, 2026 | Phase 2 committed (commit f6b8bc4) — All 12 checklist items verified complete, living documents updated, CI passing |
 
 ---
 
@@ -28,7 +29,7 @@ This is a living document tracking what has been completed, what's in progress, 
 
 **Current Phase:** Phase 3 — Graph Traversal & Query API ("The Memory")
 
-**Phase 2 is VERIFIED COMPLETE.** Local AI integration via Ollama is fully functional, supporting automated tag extraction and vector embedding generation. The worker pipeline orchestrates content refinement from ingestion to relationship discovery. All 10 Phase 2 items verified complete. robots.txt support confirmed integrated in scraper. Foundation is production-ready and thoroughly tested (36 tests, -race flag, CI/CD passing).
+**Phase 2 is VERIFIED COMPLETE AND COMMITTED.** Local AI integration via Ollama is fully functional, supporting automated tag extraction and vector embedding generation. The worker pipeline orchestrates content refinement from ingestion to relationship discovery. All 12 Phase 2 items verified complete. robots.txt support confirmed integrated in scraper. Foundation is production-ready and thoroughly tested (36 tests, -race flag, CI/CD passing). Ready to begin Phase 3.
 
 ---
 

@@ -30,7 +30,7 @@
 | 2.6 | Graceful shutdown via signal handling (SIGINT/SIGTERM) | 1 | PASS | signal.NotifyContext + 10s shutdown |
 | 2.7 | No global mutable state; dependencies injected via constructors | 1+ | PASS | Handler.New() injects deps |
 | 2.8 | Interfaces defined where consumed, not where implemented | 1+ | PASS | domain.NodeRepository, handler.Pinger |
-| 2.9 | Goroutines have clear ownership and shutdown paths | 2 | N/A - Phase 2 | |
+| 2.9 | Goroutines have clear ownership and shutdown paths | 2 | PASS | Worker pool: spawn in pool.Start(), track via WaitGroup, cleanup on context cancel |
 | 2.10 | `go vet` and `golangci-lint` pass with zero warnings | 1+ | PASS | Clean as of April 6, 2026 |
 
 ## 3. API Completeness
@@ -234,20 +234,20 @@
 - [x] Integration tests with testcontainers-go
 - [x] End-to-end verification: curl URL → job → scrape → store
 
-### Phase 2: Processing and Intelligence — "The Brain" (Weeks 4-6)
+### Phase 2: Processing and Intelligence — "The Brain" (Weeks 4-6) — COMPLETE
 
-- [x] Worker pool (configurable goroutines, graceful shutdown, backoff)
-- [x] HTML stripping pipeline (goquery)
-- [x] Dockerfile.worker + docker-compose worker service
-- [x] Ollama container in docker-compose (profile: ai)
-- [x] Ollama Go client (generate + embeddings)
-- [x] Tag extraction prompt engineering
-- [x] Embedding generation (EmbeddingGemma-300M, 768-dim)
-- [x] Tag UPSERT and node_tags association
-- [x] Auto-edge generation (2+ shared tags)
-- [x] Optimistic concurrency control
-- [x] Fallback NLP (jdkato/prose)
-- [x] Integration tests for full pipeline
+- [x] Worker pool (configurable goroutines, graceful shutdown, backoff) — VERIFIED
+- [x] HTML stripping pipeline (goquery) — VERIFIED
+- [x] Dockerfile.worker + docker-compose worker service — VERIFIED
+- [x] Ollama container in docker-compose (profile: ai) — VERIFIED
+- [x] Ollama Go client (generate + embeddings) — VERIFIED
+- [x] Tag extraction prompt engineering — VERIFIED
+- [x] Embedding generation (EmbeddingGemma-300M, 768-dim) — VERIFIED
+- [x] Tag UPSERT and node_tags association — VERIFIED
+- [x] Auto-edge generation (2+ shared tags) — VERIFIED
+- [x] Optimistic concurrency control — VERIFIED
+- [x] Fallback NLP (jdkato/prose) — VERIFIED
+- [x] Integration tests for full pipeline — VERIFIED (36 tests, -race passing)
 
 ### Phase 3: Graph Traversal and Query API — "The Memory" (Weeks 7-9)
 

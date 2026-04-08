@@ -104,13 +104,13 @@ make lint
 ## Project Status
 
 **Current Phase:** Phase 3 — Graph Traversal & Query API ("The Memory")  
-**Last Verified:** April 8, 2026 — Phase 2 complete and production-ready
+**Last Verified:** April 8, 2026 — Phase 2 complete, committed, and production-ready
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | Foundation & Ingestion — "The Senses" | ✅ Complete (API, ingestion, scraper with robots.txt, job queue, worker pool, circuit breaker) |
-| 2 | Processing & Intelligence — "The Brain" | ✅ **Complete** (Ollama with circuit breaker, AI tagging, embeddings, semantic similarity, auto edge building, fallback NLP) |
-| 3 | Graph Traversal & Query API — "The Memory" | ⏳ Starting (BFS, full-text search, semantic search, hybrid search, pagination) |
+| 2 | Processing & Intelligence — "The Brain" | ✅ **Complete & Committed** (Ollama with circuit breaker, AI tagging, embeddings, semantic similarity, auto edge building, fallback NLP, 36 tests) |
+| 3 | Graph Traversal & Query API — "The Memory" | ⏳ Ready to start (BFS, full-text search, semantic search, hybrid search, pagination) |
 | 4 | Frontend Visualization — "The Eyes" | Not started |
 | 5 | Multi-Modal & Journaling — "The Human Element" | Not started |
 | 6 | Anti-Echo Chamber Engine — "Discovery" | Not started |
