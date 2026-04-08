@@ -43,6 +43,7 @@ type ingestResponse struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 	Updated   bool   `json:"updated,omitempty"`
 }
 
@@ -102,7 +103,8 @@ func (h *Handler) HandleIngestRaw(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status, ingestResponse{
 		ID:        result.Node.ID,
 		Title:     result.Node.Title,
-		CreatedAt: result.Node.CreatedAt.Format(time.RFC3339Nano),
+		CreatedAt: result.Node.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: result.Node.UpdatedAt.Format(time.RFC3339),
 		Updated:   !result.Created,
 	})
 }

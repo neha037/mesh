@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -48,11 +49,18 @@ func (m *mockJobRepo) RetryJob(ctx context.Context, id string, backoffSeconds in
 }
 
 type mockProcessor struct {
-	processFn func(ctx context.Context, job *domain.Job) error
+	processFn      func(ctx context.Context, job *domain.Job) error
+	onDeadLetterFn func(ctx context.Context, job *domain.Job)
 }
 
 func (m *mockProcessor) Process(ctx context.Context, job *domain.Job) error {
 	return m.processFn(ctx, job)
+}
+
+func (m *mockProcessor) OnDeadLetter(ctx context.Context, job *domain.Job) {
+	if m.onDeadLetterFn != nil {
+		m.onDeadLetterFn(ctx, job)
+	}
 }
 
 func TestPool_ProcessesJob(t *testing.T) {
@@ -87,7 +95,7 @@ func TestPool_ProcessesJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	pool := NewPool(repo, proc, 1)
+	pool := NewPool(repo, proc, 1, 5*time.Minute)
 	go pool.Run(ctx)
 
 	// Wait for job to be processed
@@ -147,7 +155,7 @@ func TestPool_RetriesJobUnderMaxAttempts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	pool := NewPool(repo, proc, 1)
+	pool := NewPool(repo, proc, 1, 5*time.Minute)
 	go pool.Run(ctx)
 
 	deadline := time.After(2 * time.Second)
@@ -211,7 +219,7 @@ func TestPool_DeadLettersJobAtMaxAttempts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	pool := NewPool(repo, proc, 1)
+	pool := NewPool(repo, proc, 1, 5*time.Minute)
 	go pool.Run(ctx)
 
 	deadline := time.After(2 * time.Second)
@@ -252,7 +260,7 @@ func TestPool_GracefulShutdown(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		pool := NewPool(repo, proc, 2)
+		pool := NewPool(repo, proc, 2, 5*time.Minute)
 		pool.Run(ctx)
 		close(done)
 	}()
@@ -269,20 +277,135 @@ func TestPool_GracefulShutdown(t *testing.T) {
 	}
 }
 
+func TestPool_FatalErrorSkipsRetry(t *testing.T) {
+	var failCalled atomic.Int32
+	var retryCalled atomic.Int32
+
+	payload, _ := json.Marshal(map[string]string{"node_id": "n1"})
+	calls := atomic.Int32{}
+
+	repo := &mockJobRepo{
+		claimFn: func(_ context.Context) (*domain.Job, error) {
+			if calls.Add(1) <= 1 {
+				return &domain.Job{
+					ID:          "job-fatal",
+					Type:        "process_url",
+					Payload:     payload,
+					Status:      "running",
+					Attempts:    1,
+					MaxAttempts: 3,
+				}, nil
+			}
+			return nil, nil
+		},
+		failFn: func(_ context.Context, _ string, _ string) error {
+			failCalled.Add(1)
+			return nil
+		},
+		retryFn: func(_ context.Context, _ string, _ int) error {
+			retryCalled.Add(1)
+			return nil
+		},
+	}
+
+	proc := &mockProcessor{
+		processFn: func(_ context.Context, _ *domain.Job) error {
+			return fmt.Errorf("%w: bad payload", domain.ErrFatal)
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	pool := NewPool(repo, proc, 1, 5*time.Minute)
+	go pool.Run(ctx)
+
+	deadline := time.After(2 * time.Second)
+	for {
+		if failCalled.Load() >= 1 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for FailJob")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	cancel()
+
+	if retryCalled.Load() != 0 {
+		t.Errorf("expected no retries for fatal error, got %d", retryCalled.Load())
+	}
+}
+
 func TestRetryBackoff(t *testing.T) {
 	tests := []struct {
 		attempt int
-		want    int
+		wantMin int
+		wantMax int
 	}{
-		{1, 0},
-		{2, 60},
-		{3, 300},
-		{4, 300},
+		{1, 0, 0},
+		{2, 24, 36},  // base=30, ±20%
+		{3, 48, 72},  // base=60, ±20%
+		{4, 96, 144}, // base=120, ±20%
 	}
 	for _, tt := range tests {
 		got := retryBackoff(tt.attempt)
-		if got != tt.want {
-			t.Errorf("retryBackoff(%d) = %d, want %d", tt.attempt, got, tt.want)
+		if got < tt.wantMin || got > tt.wantMax {
+			t.Errorf("retryBackoff(%d) = %d, want [%d, %d]", tt.attempt, got, tt.wantMin, tt.wantMax)
 		}
 	}
+}
+
+func TestPool_OnDeadLetterCalled(t *testing.T) {
+	var deadLetterCalled atomic.Int32
+
+	payload, _ := json.Marshal(map[string]string{"node_id": "n1"})
+	calls := atomic.Int32{}
+
+	repo := &mockJobRepo{
+		claimFn: func(_ context.Context) (*domain.Job, error) {
+			if calls.Add(1) <= 1 {
+				return &domain.Job{
+					ID:          "job-dl",
+					Type:        "process_url",
+					Payload:     payload,
+					Status:      "running",
+					Attempts:    3,
+					MaxAttempts: 3,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
+
+	proc := &mockProcessor{
+		processFn: func(_ context.Context, _ *domain.Job) error {
+			return errors.New("permanent failure")
+		},
+		onDeadLetterFn: func(_ context.Context, job *domain.Job) {
+			deadLetterCalled.Add(1)
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	pool := NewPool(repo, proc, 1, 5*time.Minute)
+	go pool.Run(ctx)
+
+	deadline := time.After(2 * time.Second)
+	for {
+		if deadLetterCalled.Load() >= 1 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for OnDeadLetter to be called")
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	cancel()
 }

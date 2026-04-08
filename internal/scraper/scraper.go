@@ -5,11 +5,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/temoto/robotstxt"
 )
 
 // Result holds the extracted content from a scraped URL.
@@ -28,8 +31,49 @@ var userAgents = []string{
 
 var whitespaceRe = regexp.MustCompile(`\s+`)
 
+// checkRobotsTxt fetches and parses robots.txt for the target URL's host.
+// Returns an error if the path is disallowed, nil if allowed or robots.txt is unavailable.
+func checkRobotsTxt(ctx context.Context, targetURL string) error {
+	u, err := url.Parse(targetURL)
+	if err != nil {
+		return nil
+	}
+
+	robotsURL := u.Scheme + "://" + u.Host + "/robots.txt"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, robotsURL, http.NoBody)
+	if err != nil {
+		return nil
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return nil // allow if robots.txt unavailable
+	}
+	defer resp.Body.Close()
+
+	robots, err := robotstxt.FromResponse(resp)
+	if err != nil {
+		return nil
+	}
+
+	group := robots.FindGroup("*")
+	if group != nil && !group.Test(u.Path) {
+		return fmt.Errorf("blocked by robots.txt: %s", targetURL)
+	}
+	return nil
+}
+
 // Scrape fetches and extracts clean text content from the given URL.
+// Respects robots.txt: disallowed paths return an error without fetching the page.
 func Scrape(ctx context.Context, targetURL string) (Result, error) {
+	if err := checkRobotsTxt(ctx, targetURL); err != nil {
+		return Result{}, err
+	}
+
 	var result Result
 	var scrapeErr error
 

@@ -51,6 +51,9 @@ type NodeRepository interface {
 	UpdateNodeStatus(ctx context.Context, id string, status string) error
 	UpdateNodeEmbedding(ctx context.Context, id string, embedding []float32, expectedVersion int32) (bool, error)
 	GetNodeContent(ctx context.Context, id string) (Node, error)
+	GetNodeEmbedding(ctx context.Context, id string) ([]float32, error)
+	ResetStaleProcessingNodes(ctx context.Context, cutoff time.Time) (int64, error)
+	ListNodesWithoutEmbedding(ctx context.Context, limit int32) ([]string, error)
 }
 
 // Tag represents a concept tag extracted from content.
@@ -64,6 +67,7 @@ type Tag struct {
 type TagRepository interface {
 	UpsertTag(ctx context.Context, name string) (string, error)
 	AssociateNodeTag(ctx context.Context, nodeID, tagID string, confidence float32) error
+	BulkAssociateNodeTags(ctx context.Context, nodeID string, tagIDs []string, confidence float32) error
 	GetNodeTags(ctx context.Context, nodeID string) ([]Tag, error)
 }
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	pgvector "github.com/pgvector/pgvector-go"
 	"github.com/neha037/mesh/internal/domain"
+	pgvector "github.com/pgvector/pgvector-go"
 )
 
 type EdgeRepo struct {
@@ -51,6 +51,9 @@ func (r *EdgeRepo) FindSimilarNodes(ctx context.Context, embedding []float32, ex
 	uid, err := parseUUID(excludeID)
 	if err != nil {
 		return nil, fmt.Errorf("parsing exclude id: %w", err)
+	}
+	if len(embedding) == 0 {
+		return nil, fmt.Errorf("empty embedding")
 	}
 	rows, err := r.q.FindSimilarNodes(ctx, FindSimilarNodesParams{
 		Embedding: pgvector.NewVector(embedding),

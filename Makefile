@@ -6,7 +6,7 @@ DATABASE_URL ?= postgres://mesh:$(PG_PASSWORD)@localhost:5432/mesh?sslmode=disab
 .PHONY: build run-api run-worker test test-integration \
        migrate-up migrate-down \
        docker-up docker-up-ai docker-down docker-logs \
-       lint lint-sql sqlc pull-models install uninstall \
+       lint lint-sql sqlc check-sqlc pull-models install uninstall \
        fmt tidy coverage validate-migrations
 
 fmt:
@@ -22,7 +22,7 @@ coverage:
 setup:
 	@test -f .env || (cp .env.example .env && echo "Created .env from .env.example — edit passwords before use")
 
-build:
+build: sqlc
 	go build -o bin/api ./cmd/api
 	go build -o bin/worker ./cmd/worker
 
@@ -63,7 +63,14 @@ lint-sql:
 	@command -v squawk >/dev/null 2>&1 || { echo "Install squawk: npm i -g squawk-cli"; exit 1; }
 	squawk migrations/*.up.sql
 
-validate-migrations: lint-sql test-integration
+check-sqlc:
+	sqlc generate
+	@git diff --quiet internal/storage/models.go internal/storage/db.go internal/storage/*.sql.go || \
+		(echo "ERROR: sqlc generated code is stale. Run 'make sqlc' and commit the changes."; \
+		git diff --stat internal/storage/models.go internal/storage/db.go internal/storage/*.sql.go; exit 1)
+	@echo "sqlc code is up-to-date"
+
+validate-migrations: lint-sql check-sqlc test-integration
 	@echo "All migration checks passed"
 
 sqlc:

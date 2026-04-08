@@ -16,7 +16,7 @@ func uuidToString(u pgtype.UUID) string {
 func parseUUID(id string) (pgtype.UUID, error) {
 	var uuid pgtype.UUID
 	if err := uuid.Scan(id); err != nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid ID %q: %w", id, err)
+		return pgtype.UUID{}, fmt.Errorf("invalid UUID %q: %w", id, err)
 	}
 	return uuid, nil
 }

@@ -117,5 +117,3 @@ func claimRowToJob(row *ClaimJobRow) *domain.Job {
 	}
 	return j
 }
-
-

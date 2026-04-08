@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -243,4 +244,33 @@ func (r *NodeRepo) GetNodeContent(ctx context.Context, id string) (domain.Node, 
 	}, nil
 }
 
+func (r *NodeRepo) GetNodeEmbedding(ctx context.Context, id string) ([]float32, error) {
+	uid, err := parseUUID(id)
+	if err != nil {
+		return nil, fmt.Errorf("parsing node id: %w", err)
+	}
+	embedding, err := r.q.GetNodeEmbedding(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("getting node embedding: %w", err)
+	}
+	return embedding.Slice(), nil
+}
 
+func (r *NodeRepo) ResetStaleProcessingNodes(ctx context.Context, cutoff time.Time) (int64, error) {
+	return r.q.ResetStaleProcessingNodes(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
+}
+
+func (r *NodeRepo) ListNodesWithoutEmbedding(ctx context.Context, limit int32) ([]string, error) {
+	rows, err := r.q.ListNodesWithoutEmbedding(ctx, limit)
+	if err != nil {
+		return nil, fmt.Errorf("listing nodes without embedding: %w", err)
+	}
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = uuidToString(row)
+	}
+	return ids, nil
+}

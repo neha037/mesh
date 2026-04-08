@@ -15,7 +15,7 @@ import (
 const buildTagSharedEdges = `-- name: BuildTagSharedEdges :exec
 INSERT INTO edges (source_id, target_id, rel_type, weight)
 SELECT $1::uuid, nt2.node_id, 'tag_shared',
-       COUNT(*)::real / NULLIF((SELECT COUNT(*) FROM node_tags WHERE node_id = $1), 0)
+       COALESCE(COUNT(*)::real / NULLIF((SELECT COUNT(*) FROM node_tags WHERE node_id = $1), 0), 0)
 FROM node_tags nt1
 JOIN node_tags nt2 ON nt1.tag_id = nt2.tag_id
 WHERE nt1.node_id = $1 AND nt2.node_id != $1

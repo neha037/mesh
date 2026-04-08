@@ -91,7 +91,7 @@
 | 5.5 | Job retry with max_attempts (default 3) | 1 | PASS | RetryJob if attempts < maxAttempts |
 | 5.6 | Dead-letter: failed jobs set to `status='dead'` after max retries | 1 | PASS | FailJob at max attempts |
 | 5.7 | HTML stripping pipeline: fetch → parse → strip scripts/styles → clean text | 2 | PASS | scraper.go strips script/style/nav/footer/header |
-| 5.8 | Web scraper respects robots.txt, has User-Agent rotation, inter-request delay | 1 | PASS | Colly checks robots.txt by default, 5 UA strings |
+| 5.8 | Web scraper respects robots.txt, has User-Agent rotation, inter-request delay | 1 | PASS | checkRobotsTxt() in scraper.go, verified tested, 5 UA strings |
 | 5.9 | Circuit breaker on external HTTP calls (open after 5 failures, half-open after 60s) | 1 | PASS | scraper/breaker.go per-domain gobreaker |
 | 5.10 | All external calls wrapped with `context.WithTimeout(30s)` | 1 | PASS | colly SetRequestTimeout(30s) |
 | 5.11 | Tag UPSERT uses `ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name` | 2 | PASS | |

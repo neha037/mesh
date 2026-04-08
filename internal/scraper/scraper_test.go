@@ -83,6 +83,25 @@ func TestScrape(t *testing.T) {
 	}
 }
 
+func TestScrape_RespectsRobotsTxt(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("User-agent: *\nDisallow: /blocked\n"))
+	})
+	mux.HandleFunc("/blocked", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><head><title>Blocked</title></head><body><article>Secret content</article></body></html>`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	_, err := Scrape(context.Background(), srv.URL+"/blocked")
+	if err == nil {
+		t.Fatal("expected error when scraping robots.txt-blocked URL, got nil")
+	}
+}
+
 func TestScrape_ContextCancellation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(5 * time.Second)

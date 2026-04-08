@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/neha037/mesh/internal/domain"
@@ -17,7 +18,7 @@ func NewTagRepo(q *Queries) *TagRepo {
 }
 
 func (r *TagRepo) UpsertTag(ctx context.Context, name string) (string, error) {
-	row, err := r.q.UpsertTag(ctx, name)
+	row, err := r.q.UpsertTag(ctx, strings.ToLower(strings.TrimSpace(name)))
 	if err != nil {
 		return "", fmt.Errorf("upserting tag: %w", err)
 	}
@@ -41,6 +42,25 @@ func (r *TagRepo) AssociateNodeTag(ctx context.Context, nodeID, tagID string, co
 		return fmt.Errorf("associating tag: %w", err)
 	}
 	return nil
+}
+
+func (r *TagRepo) BulkAssociateNodeTags(ctx context.Context, nodeID string, tagIDs []string, confidence float32) error {
+	nid, err := parseUUID(nodeID)
+	if err != nil {
+		return fmt.Errorf("parsing node id: %w", err)
+	}
+	uuids := make([]pgtype.UUID, len(tagIDs))
+	for i, id := range tagIDs {
+		uuids[i], err = parseUUID(id)
+		if err != nil {
+			return fmt.Errorf("parsing tag id %s: %w", id, err)
+		}
+	}
+	return r.q.BulkAssociateNodeTags(ctx, BulkAssociateNodeTagsParams{
+		NodeID:     nid,
+		TagIds:     uuids,
+		Confidence: confidence,
+	})
 }
 
 func (r *TagRepo) GetNodeTags(ctx context.Context, nodeID string) ([]domain.Tag, error) {

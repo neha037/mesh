@@ -30,6 +30,24 @@ func (q *Queries) AssociateNodeTag(ctx context.Context, arg AssociateNodeTagPara
 	return err
 }
 
+const bulkAssociateNodeTags = `-- name: BulkAssociateNodeTags :exec
+INSERT INTO node_tags (node_id, tag_id, confidence)
+SELECT $1::uuid, unnest($2::uuid[]), $3::real
+ON CONFLICT (node_id, tag_id) DO UPDATE
+SET confidence = GREATEST(node_tags.confidence, EXCLUDED.confidence)
+`
+
+type BulkAssociateNodeTagsParams struct {
+	NodeID     pgtype.UUID   `json:"node_id"`
+	TagIds     []pgtype.UUID `json:"tag_ids"`
+	Confidence float32       `json:"confidence"`
+}
+
+func (q *Queries) BulkAssociateNodeTags(ctx context.Context, arg BulkAssociateNodeTagsParams) error {
+	_, err := q.db.Exec(ctx, bulkAssociateNodeTags, arg.NodeID, arg.TagIds, arg.Confidence)
+	return err
+}
+
 const getNodeTags = `-- name: GetNodeTags :many
 SELECT t.id, t.name, nt.confidence
 FROM tags t JOIN node_tags nt ON t.id = nt.tag_id
@@ -65,14 +83,14 @@ func (q *Queries) GetNodeTags(ctx context.Context, nodeID pgtype.UUID) ([]GetNod
 }
 
 const upsertTag = `-- name: UpsertTag :one
-INSERT INTO tags (name) VALUES ($1)
+INSERT INTO tags (name) VALUES (lower(trim($1)))
 ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
 RETURNING id, name
 `
 
 // Insert tag, return existing if name conflict.
-func (q *Queries) UpsertTag(ctx context.Context, name string) (Tag, error) {
-	row := q.db.QueryRow(ctx, upsertTag, name)
+func (q *Queries) UpsertTag(ctx context.Context, btrim string) (Tag, error) {
+	row := q.db.QueryRow(ctx, upsertTag, btrim)
 	var i Tag
 	err := row.Scan(&i.ID, &i.Name)
 	return i, err

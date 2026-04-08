@@ -110,3 +110,49 @@ func TestProcessContent_EmptyContent(t *testing.T) {
 		t.Error("expected zero tags for empty content")
 	}
 }
+
+func TestGenerateEmbedding(t *testing.T) {
+	t.Run("healthy ollama returns embedding", func(t *testing.T) {
+		mockOllama := &mockOllamaClient{
+			healthyFn: func(_ context.Context) bool { return true },
+			embedFn: func(_ context.Context, _ string) ([]float32, error) {
+				return []float32{0.1, 0.2, 0.3}, nil
+			},
+		}
+
+		svc := nlp.NewService(mockOllama)
+		emb, err := svc.GenerateEmbedding(context.Background(), "test content")
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(emb) != 3 || emb[0] != 0.1 {
+			t.Errorf("unexpected embedding result: %v", emb)
+		}
+	})
+
+	t.Run("unhealthy ollama returns error", func(t *testing.T) {
+		mockOllama := &mockOllamaClient{
+			healthyFn: func(_ context.Context) bool { return false },
+		}
+
+		svc := nlp.NewService(mockOllama)
+		_, err := svc.GenerateEmbedding(context.Background(), "test content")
+
+		if err == nil {
+			t.Fatal("expected error for unhealthy ollama, got nil")
+		}
+	})
+
+	t.Run("empty content returns nil", func(t *testing.T) {
+		svc := nlp.NewService(&mockOllamaClient{})
+		emb, err := svc.GenerateEmbedding(context.Background(), "")
+
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if emb != nil {
+			t.Errorf("expected nil for empty content, got %v", emb)
+		}
+	})
+}

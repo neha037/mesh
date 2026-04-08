@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds all application configuration loaded from environment variables.
@@ -21,6 +23,8 @@ type Config struct {
 	AllowedOrigins []string
 	WorkerCount    int
 	LogLevel       string
+	EmbeddingDim   int
+	JobTimeout     time.Duration
 }
 
 // Load reads configuration from environment variables and returns a Config.
@@ -29,6 +33,15 @@ func Load() (*Config, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+
+	embeddingDim := 768
+	if v := os.Getenv("EMBEDDING_DIM"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("EMBEDDING_DIM must be an integer: %w", err)
+		}
+		embeddingDim = n
 	}
 
 	workerCount := 4
@@ -43,7 +56,16 @@ func Load() (*Config, error) {
 		workerCount = n
 	}
 
-	return &Config{
+	jobTimeout := 5 * time.Minute
+	if v := os.Getenv("JOB_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return nil, fmt.Errorf("JOB_TIMEOUT must be a valid duration: %w", err)
+		}
+		jobTimeout = d
+	}
+
+	cfg := &Config{
 		DatabaseURL:    dbURL,
 		MinioEndpoint:  getEnvOrDefault("MINIO_ENDPOINT", "localhost:9000"),
 		MinioAccessKey: getEnvOrDefault("MINIO_ACCESS_KEY", "meshadmin"),
@@ -56,7 +78,15 @@ func Load() (*Config, error) {
 		AllowedOrigins: loadOrigins(),
 		WorkerCount:    workerCount,
 		LogLevel:       getEnvOrDefault("LOG_LEVEL", "info"),
-	}, nil
+		EmbeddingDim:   embeddingDim,
+		JobTimeout:     jobTimeout,
+	}
+
+	if cfg.MinioSecretKey == "" {
+		slog.Warn("MINIO_SECRET_KEY not set — MinIO operations will fail")
+	}
+
+	return cfg, nil
 }
 
 func loadOrigins() []string {

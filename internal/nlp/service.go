@@ -2,6 +2,7 @@ package nlp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/neha037/mesh/internal/ollama"
@@ -58,4 +59,15 @@ func (s *Service) ProcessContent(ctx context.Context, content string) (ProcessRe
 	}
 
 	return result, nil
+}
+
+// GenerateEmbedding generates only an embedding vector for the given content.
+func (s *Service) GenerateEmbedding(ctx context.Context, content string) ([]float32, error) {
+	if content == "" {
+		return nil, nil
+	}
+	if !s.ollama.Healthy(ctx) {
+		return nil, fmt.Errorf("ollama unavailable for embedding generation")
+	}
+	return s.ollama.GenerateEmbedding(ctx, content)
 }

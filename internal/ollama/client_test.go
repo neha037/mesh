@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ func TestExtractTags_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	result, err := client.ExtractTags(context.Background(), "some content")
 
 	if err != nil {
@@ -50,7 +51,7 @@ func TestExtractTags_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	_, err := client.ExtractTags(context.Background(), "some content")
 
 	if err == nil {
@@ -59,7 +60,7 @@ func TestExtractTags_InvalidJSON(t *testing.T) {
 }
 
 func TestExtractTags_EmptyContent(t *testing.T) {
-	client := ollama.NewClient("http://localhost", "test-model", "test-embed")
+	client := ollama.NewClient("http://localhost", "test-model", "test-embed", 768)
 	_, err := client.ExtractTags(context.Background(), "")
 
 	if err == nil || err.Error() == "" {
@@ -73,7 +74,7 @@ func TestExtractTags_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	_, err := client.ExtractTags(context.Background(), "some content")
 
 	if err == nil {
@@ -98,7 +99,7 @@ func TestGenerateEmbedding_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	result, err := client.GenerateEmbedding(context.Background(), "some text")
 
 	if err != nil {
@@ -119,7 +120,7 @@ func TestGenerateEmbedding_WrongDimensions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	_, err := client.GenerateEmbedding(context.Background(), "some text")
 
 	if err == nil {
@@ -133,7 +134,7 @@ func TestGenerateEmbedding_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	_, err := client.GenerateEmbedding(context.Background(), "some text")
 
 	if err == nil {
@@ -150,7 +151,7 @@ func TestHealthy_Up(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	if !client.Healthy(context.Background()) {
 		t.Error("expected Healthy to return true")
 	}
@@ -160,7 +161,7 @@ func TestHealthy_Down(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	server.Close()
 
 	// Use a short timeout for Healthy to avoid waiting 5s in test
@@ -180,7 +181,7 @@ func TestCircuitBreaker_OpensAfterConsecutiveFailures(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	ctx := context.Background()
 
 	// Trigger 3 consecutive failures to trip the breaker
@@ -207,7 +208,7 @@ func TestCircuitBreaker_SharedBetweenMethods(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	ctx := context.Background()
 
 	// Trip breaker with ExtractTags failures
@@ -234,7 +235,7 @@ func TestHealthy_FalseWhenBreakerOpen(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := ollama.NewClient(server.URL, "test-model", "test-embed")
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
 	ctx := context.Background()
 
 	// Verify Healthy works before breaker trips
@@ -256,5 +257,44 @@ func TestHealthy_FalseWhenBreakerOpen(t *testing.T) {
 
 	if callCount != countBeforeHealthy {
 		t.Errorf("expected no HTTP call when breaker is open, got %d extra calls", callCount-countBeforeHealthy)
+	}
+}
+
+func TestGenerateEmbedding_AllZerosRejected(t *testing.T) {
+	embedding := make([]float32, 768)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string][][]float32{"embeddings": {embedding}}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 768)
+	_, err := client.GenerateEmbedding(context.Background(), "text")
+	if err == nil {
+		t.Fatal("expected error for all-zeros embedding")
+	}
+	wantSubstr := "embedding is all zeros"
+	if !strings.Contains(err.Error(), wantSubstr) {
+		t.Errorf("error = %v, want containing %q", err, wantSubstr)
+	}
+}
+
+func TestGenerateEmbedding_Normalization(t *testing.T) {
+	embedding := []float32{3.0, 4.0}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string][][]float32{"embeddings": {embedding}}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := ollama.NewClient(server.URL, "test-model", "test-embed", 2)
+	result, err := client.GenerateEmbedding(context.Background(), "text")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Norm of [3, 4] is 5. Expected normalized: [0.6, 0.8]
+	if result[0] != 0.6 || result[1] != 0.8 {
+		t.Errorf("normalization failed, got %v", result)
 	}
 }

@@ -67,6 +67,18 @@ func (m *mockNodeRepo) GetNodeContent(_ context.Context, _ string) (domain.Node,
 	return domain.Node{}, nil
 }
 
+func (m *mockNodeRepo) GetNodeEmbedding(_ context.Context, _ string) ([]float32, error) {
+	return nil, nil
+}
+
+func (m *mockNodeRepo) ResetStaleProcessingNodes(_ context.Context, _ time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockNodeRepo) ListNodesWithoutEmbedding(_ context.Context, _ int32) ([]string, error) {
+	return nil, nil
+}
+
 type mockIngestService struct {
 	ingestURLFn  func(ctx context.Context, url, nodeType string) (domain.IngestURLResult, error)
 	ingestTextFn func(ctx context.Context, title, content, nodeType string) (domain.IngestTextResult, error)

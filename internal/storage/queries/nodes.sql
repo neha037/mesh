@@ -52,3 +52,16 @@ WHERE id = $1 AND version = $3;
 -- Get node content and metadata for NLP processing.
 SELECT id, type, title, content, status, version
 FROM nodes WHERE id = $1;
+
+-- name: GetNodeEmbedding :one
+SELECT embedding FROM nodes WHERE id = $1;
+
+-- name: ResetStaleProcessingNodes :execrows
+UPDATE nodes SET status = 'pending'
+WHERE status = 'processing'
+  AND updated_at < @cutoff::timestamptz;
+
+-- name: ListNodesWithoutEmbedding :many
+SELECT id FROM nodes
+WHERE status = 'processed' AND embedding IS NULL
+LIMIT $1;

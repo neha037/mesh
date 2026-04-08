@@ -2,7 +2,9 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -16,17 +18,19 @@ const (
 
 // Pool manages a fixed number of goroutines that claim and process jobs.
 type Pool struct {
-	jobs      domain.JobRepository
-	processor Processor
-	count     int
+	jobs       domain.JobRepository
+	processor  Processor
+	count      int
+	jobTimeout time.Duration
 }
 
 // NewPool creates a worker pool with the given concurrency.
-func NewPool(jobs domain.JobRepository, processor Processor, count int) *Pool {
+func NewPool(jobs domain.JobRepository, processor Processor, count int, jobTimeout time.Duration) *Pool {
 	return &Pool{
-		jobs:      jobs,
-		processor: processor,
-		count:     count,
+		jobs:       jobs,
+		processor:  processor,
+		count:      count,
+		jobTimeout: jobTimeout,
 	}
 }
 
@@ -79,20 +83,26 @@ func (p *Pool) loop(ctx context.Context, id int) {
 
 		slog.Info("processing job", "worker", id, "job_id", job.ID, "type", job.Type)
 
-		if err := p.processor.Process(ctx, job); err != nil {
+		// Per-job timeout to prevent hanging workers
+		jobCtx, cancel := context.WithTimeout(ctx, p.jobTimeout)
+		err = p.processor.Process(jobCtx, job)
+		cancel()
+
+		if err != nil {
 			slog.Error("job failed", "worker", id, "job_id", job.ID, "error", err)
-			if job.Attempts < job.MaxAttempts {
+			if errors.Is(err, domain.ErrFatal) || job.Attempts >= job.MaxAttempts {
+				if failErr := p.jobs.FailJob(ctx, job.ID, err.Error()); failErr != nil {
+					slog.Error("marking job failed", "worker", id, "job_id", job.ID, "error", failErr)
+				} else {
+					slog.Warn("job dead-lettered", "worker", id, "job_id", job.ID, "attempts", job.Attempts)
+					p.processor.OnDeadLetter(ctx, job)
+				}
+			} else {
 				retryDelay := retryBackoff(int(job.Attempts))
 				if retryErr := p.jobs.RetryJob(ctx, job.ID, retryDelay); retryErr != nil {
 					slog.Error("retrying job", "worker", id, "job_id", job.ID, "error", retryErr)
 				} else {
 					slog.Info("job scheduled for retry", "worker", id, "job_id", job.ID, "attempt", job.Attempts, "delay_s", retryDelay)
-				}
-			} else {
-				if failErr := p.jobs.FailJob(ctx, job.ID, err.Error()); failErr != nil {
-					slog.Error("marking job failed", "worker", id, "job_id", job.ID, "error", failErr)
-				} else {
-					slog.Warn("job dead-lettered", "worker", id, "job_id", job.ID, "attempts", job.Attempts)
 				}
 			}
 			continue
@@ -107,15 +117,22 @@ func (p *Pool) loop(ctx context.Context, id int) {
 }
 
 // retryBackoff returns the delay in seconds for the given attempt number.
+// Implements exponential backoff with jitter.
 func retryBackoff(attempt int) int {
-	switch attempt {
-	case 1:
+	if attempt <= 1 {
 		return 0
-	case 2:
-		return 60
-	default:
-		return 300
 	}
+	// Exp backoff: 30s, 60s, 120s, 240s...
+	base := 15 * (1 << uint(attempt-1))
+	if base > 600 {
+		base = 600
+	}
+	// Add +/- 20% jitter
+	jitter := rand.IntN(base/5 + 1)
+	if rand.IntN(2) == 0 {
+		return base + jitter
+	}
+	return base - jitter
 }
 
 // sleep waits for the duration or until ctx is cancelled. Returns false if cancelled.

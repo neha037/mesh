@@ -97,6 +97,17 @@ func (q *Queries) GetNodeContent(ctx context.Context, id pgtype.UUID) (GetNodeCo
 	return i, err
 }
 
+const getNodeEmbedding = `-- name: GetNodeEmbedding :one
+SELECT embedding FROM nodes WHERE id = $1
+`
+
+func (q *Queries) GetNodeEmbedding(ctx context.Context, id pgtype.UUID) (pgvector.Vector, error) {
+	row := q.db.QueryRow(ctx, getNodeEmbedding, id)
+	var embedding pgvector.Vector
+	err := row.Scan(&embedding)
+	return embedding, err
+}
+
 const listNodes = `-- name: ListNodes :many
 SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
 FROM nodes
@@ -158,6 +169,32 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]ListNod
 	return items, nil
 }
 
+const listNodesWithoutEmbedding = `-- name: ListNodesWithoutEmbedding :many
+SELECT id FROM nodes
+WHERE status = 'processed' AND embedding IS NULL
+LIMIT $1
+`
+
+func (q *Queries) ListNodesWithoutEmbedding(ctx context.Context, limit int32) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listNodesWithoutEmbedding, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentNodes = `-- name: ListRecentNodes :many
 SELECT id, type, title, content, summary, source_url, image_key, status, version, created_at, updated_at
 FROM nodes
@@ -209,6 +246,20 @@ func (q *Queries) ListRecentNodes(ctx context.Context, limit int32) ([]ListRecen
 		return nil, err
 	}
 	return items, nil
+}
+
+const resetStaleProcessingNodes = `-- name: ResetStaleProcessingNodes :execrows
+UPDATE nodes SET status = 'pending'
+WHERE status = 'processing'
+  AND updated_at < $1::timestamptz
+`
+
+func (q *Queries) ResetStaleProcessingNodes(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, resetStaleProcessingNodes, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateNodeContent = `-- name: UpdateNodeContent :exec

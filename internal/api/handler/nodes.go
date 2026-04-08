@@ -20,6 +20,7 @@ type nodeResponse struct {
 	SourceURL string `json:"source_url,omitempty"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type listNodesResponse struct {
@@ -145,7 +146,8 @@ func toNodeResponse(n *domain.Node) nodeResponse {
 		Type:      n.Type,
 		Title:     n.Title,
 		Status:    n.Status,
-		CreatedAt: n.CreatedAt.Format(time.RFC3339Nano),
+		CreatedAt: n.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: n.UpdatedAt.Format(time.RFC3339),
 	}
 	if n.SourceURL != "" {
 		resp.SourceURL = n.SourceURL

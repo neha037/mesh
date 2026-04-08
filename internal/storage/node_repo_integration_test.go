@@ -4,6 +4,7 @@ package storage_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -273,6 +274,70 @@ func TestListNodes_EdgeCases_Integration(t *testing.T) {
 			t.Error("expected HasMore=false for single node")
 		}
 	})
+}
+
+// TestGetNode_CoversAllSchemaColumns_Integration verifies that GetNodeRow includes
+// every column in the nodes table, or explicitly documents why a column is excluded.
+// This prevents schema drift where a migration adds a column but queries are not updated.
+func TestGetNode_CoversAllSchemaColumns_Integration(t *testing.T) {
+	pool, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Columns intentionally excluded from GetNodeRow with reasons.
+	// When a new column is added via migration, this test will fail unless
+	// the column is either added to the GetNode query or listed here.
+	excluded := map[string]string{
+		"embedding": "large vector column, fetched separately in Phase 2",
+	}
+
+	// Get all columns from the nodes table via information_schema.
+	rows, err := pool.Query(ctx,
+		`SELECT column_name FROM information_schema.columns
+		 WHERE table_name = 'nodes' ORDER BY ordinal_position`)
+	if err != nil {
+		t.Fatalf("querying schema: %v", err)
+	}
+	defer rows.Close()
+
+	var schemaCols []string
+	for rows.Next() {
+		var col string
+		if err := rows.Scan(&col); err != nil {
+			t.Fatalf("scanning column: %v", err)
+		}
+		schemaCols = append(schemaCols, col)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterating columns: %v", err)
+	}
+
+	if len(schemaCols) == 0 {
+		t.Fatal("no columns found in nodes table — migrations may not have run")
+	}
+
+	// Build a set of JSON tag names from GetNodeRow struct fields.
+	rt := reflect.TypeOf(storage.GetNodeRow{})
+	structTags := make(map[string]bool, rt.NumField())
+	for i := range rt.NumField() {
+		tag := rt.Field(i).Tag.Get("json")
+		if tag != "" && tag != "-" {
+			structTags[tag] = true
+		}
+	}
+
+	// Every schema column must be in the struct or in the exclusion list.
+	for _, col := range schemaCols {
+		if _, ok := excluded[col]; ok {
+			continue
+		}
+		if !structTags[col] {
+			t.Errorf("schema column %q exists in nodes table but is missing from GetNodeRow struct and not in exclusion list — "+
+				"either add it to the GetNode query in queries/nodes.sql and run 'make sqlc', "+
+				"or add it to the excluded map in this test with a reason", col)
+		}
+	}
 }
 
 func TestDeleteNode_Integration(t *testing.T) {

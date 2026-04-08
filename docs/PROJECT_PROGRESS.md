@@ -1,6 +1,6 @@
 # Mesh — Project Progress
 
-**Last Updated:** April 7, 2026 (evening)
+**Last Updated:** April 8, 2026
 
 This is a living document tracking what has been completed, what's in progress, and what's next. It will be updated as the project evolves.
 
@@ -20,14 +20,15 @@ This is a living document tracking what has been completed, what's in progress, 
 | April 6, 2026 | Phase 1 Week 3 — Job queue (FOR UPDATE SKIP LOCKED), POST /ingest/url (202 Accepted), POST /ingest/text (201 Created), colly web scraper (UA rotation, robots.txt, HTML cleaning), per-domain circuit breaker (gobreaker, 5-failure threshold), worker pool (configurable goroutines, exponential backoff, graceful shutdown), transactional node+job creation, 15 new unit tests |
 | April 7, 2026 | Phase 2 — Ollama client, tag extraction (LLM + fallback NLP), embedding generation, auto edge-building (tag_shared + semantic), worker pipeline enhancement, 25+ new tests |
 | April 7, 2026 | Phase 2 enhancements — Ollama client circuit breaker (3-failure threshold, 60s recovery), fallback NLP when Ollama unavailable, 3 additional tests, full suite passes with -race |
+| April 8, 2026 | Phase 2 verification complete — Confirmed robots.txt support, scrapers respect robots.txt with circuit breaker protection, 36 tests passing with -race, ready for Phase 3 kickoff |
 
 ---
 
 ## Overall Status
 
-**Current Phase:** Phase 3 — Graph Exploration & Serendipity ("The Adjacent Possible")
+**Current Phase:** Phase 3 — Graph Traversal & Query API ("The Memory")
 
-**Phase 2 is complete.** Local AI integration via Ollama is fully functional, supporting automated tag extraction and vector embedding generation. The worker pipeline now orchestrates content refinement from ingestion to relationship discovery.
+**Phase 2 is VERIFIED COMPLETE.** Local AI integration via Ollama is fully functional, supporting automated tag extraction and vector embedding generation. The worker pipeline orchestrates content refinement from ingestion to relationship discovery. All 10 Phase 2 items verified complete. robots.txt support confirmed integrated in scraper. Foundation is production-ready and thoroughly tested (36 tests, -race flag, CI/CD passing).
 
 ---
 

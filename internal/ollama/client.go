@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sony/gobreaker/v2"
@@ -16,15 +18,17 @@ type HTTPClient struct {
 	baseURL    string
 	tagModel   string
 	embedModel string
+	embedDim   int
 	httpClient *http.Client
 	breaker    *gobreaker.CircuitBreaker[any]
 }
 
-func NewClient(baseURL, tagModel, embedModel string) *HTTPClient {
+func NewClient(baseURL, tagModel, embedModel string, embedDim int) *HTTPClient {
 	return &HTTPClient{
 		baseURL:    baseURL,
 		tagModel:   tagModel,
 		embedModel: embedModel,
+		embedDim:   embedDim,
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 		breaker: gobreaker.NewCircuitBreaker[any](gobreaker.Settings{
 			Name:        "ollama",
@@ -108,12 +112,26 @@ func (c *HTTPClient) extractTags(ctx context.Context, content string) (TagResult
 		return TagResult{}, fmt.Errorf("parsing nested json: %w", err)
 	}
 
-	if len(tResp.Tags) == 0 {
-		return TagResult{}, fmt.Errorf("no tags identified")
+	var validTags []string
+	seen := make(map[string]bool)
+	for _, t := range tResp.Tags {
+		t = strings.TrimSpace(strings.ToLower(t))
+		if t == "" || seen[t] {
+			continue
+		}
+		if len(t) > 50 {
+			t = t[:50]
+		}
+		validTags = append(validTags, t)
+		seen[t] = true
+	}
+
+	if len(validTags) == 0 {
+		return TagResult{}, fmt.Errorf("no valid tags identified")
 	}
 
 	return TagResult{
-		Tags:       tResp.Tags,
+		Tags:       validTags,
 		Confidence: tResp.Confidence,
 	}, nil
 }
@@ -178,11 +196,49 @@ func (c *HTTPClient) generateEmbedding(ctx context.Context, text string) ([]floa
 	}
 
 	embedding := eResp.Embeddings[0]
-	if len(embedding) != 768 {
-		return nil, fmt.Errorf("expected 768 dimensions, got %d", len(embedding))
+	if len(embedding) != c.embedDim {
+		return nil, fmt.Errorf("expected %d dimensions, got %d", c.embedDim, len(embedding))
 	}
 
+	if err := validateEmbedding(embedding); err != nil {
+		return nil, fmt.Errorf("invalid embedding: %w", err)
+	}
+	normalizeEmbedding(embedding)
+
 	return embedding, nil
+}
+
+func validateEmbedding(v []float32) error {
+	allZero := true
+	for i, f := range v {
+		if math.IsNaN(float64(f)) {
+			return fmt.Errorf("embedding contains NaN at index %d", i)
+		}
+		if math.IsInf(float64(f), 0) {
+			return fmt.Errorf("embedding contains Inf at index %d", i)
+		}
+		if f != 0 {
+			allZero = false
+		}
+	}
+	if allZero {
+		return fmt.Errorf("embedding is all zeros")
+	}
+	return nil
+}
+
+func normalizeEmbedding(v []float32) {
+	var norm float64
+	for _, f := range v {
+		norm += float64(f) * float64(f)
+	}
+	norm = math.Sqrt(norm)
+	if norm == 0 {
+		return
+	}
+	for i := range v {
+		v[i] = float32(float64(v[i]) / norm)
+	}
 }
 
 func (c *HTTPClient) Healthy(ctx context.Context) bool {
